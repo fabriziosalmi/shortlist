@@ -20,8 +20,8 @@
     },
     "swarm_status_dashboard": {
       "node_id": "8d464c1d-7e2d-4c85-bc10-1440463f246c",
-      "claimed_at": "2025-09-27T23:03:32.031065+00:00",
-      "task_heartbeat": "2025-09-27T23:03:32.031065+00:00",
+      "claimed_at": "2025-09-27T23:05:20.150884+00:00",
+      "task_heartbeat": "2025-09-27T23:05:20.150884+00:00",
       "status": "claiming"
     }
   }
