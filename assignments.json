@@ -14,8 +14,8 @@
     },
     "telegram_text_posts": {
       "node_id": "8d464c1d-7e2d-4c85-bc10-1440463f246c",
-      "claimed_at": "2025-09-27T21:49:24.796979+00:00",
-      "task_heartbeat": "2025-09-27T21:49:24.796979+00:00",
+      "claimed_at": "2025-09-27T21:51:05.283693+00:00",
+      "task_heartbeat": "2025-09-27T21:51:05.283693+00:00",
       "status": "claiming"
     }
   }
