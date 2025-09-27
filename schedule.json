@@ -1,7 +1,7 @@
 {
   "tasks": [
     { "id": "youtube_video_stream", "type": "video", "priority": 1 },
-    { "id": "icecast_audio_stream", "type": "audio", "priority": 2 },
+    { "id": "self_hosted_audio_stream", "type": "audio", "priority": 2 },
     { "id": "telegram_text_posts", "type": "text", "priority": 3 }
   ]
 }

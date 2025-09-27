@@ -167,52 +167,77 @@ class Node:
                 print(f"    - ✅ Rivendicazione di {self.current_task['id']} riuscita!")
                 self.state = NodeState.ACTIVE
             else:
-                # Questo caso è raro, significa che non c'erano modifiche da committare
-                print("    - Nessuna modifica da committare, probabilmente un falso allarme. Ritorno a IDLE.")
+                print("    - Nessuna modifica da committare. Ritorno a IDLE.")
                 self.state = NodeState.IDLE
         except subprocess.CalledProcessError:
-            print(f"    - ❌ Rivendicazione fallita (conflitto?). Ritorno a IDLE.")
+            print(f"    - ❌ Rivendicazione fallita (conflitto?). Eseguo reset per recuperare.")
+            try:
+                main_branch = run_command(['git', 'rev-parse', '--abbrev-ref', 'HEAD']).strip()
+                run_command(['git', 'fetch', 'origin'])
+                run_command(['git', 'reset', '--hard', f'origin/{main_branch}'])
+                print("    - Reset del repository locale completato.")
+            except Exception as reset_e:
+                print(f"    - 🚨 ERRORE CRITICO durante il reset: {reset_e}")
             self.state = NodeState.IDLE
 
     def run_active_state(self):
+        SHORTLIST_FILE = "shortlist.json" # Aggiunta per fixare il NameError
         task_id = self.current_task['id']
         task_type = self.current_task['type']
         print(f"[{self.state}] Eseguo il task: {task_id} (tipo: {task_type})")
 
-        # Mappa dei tipi di task ai loro script di rendering
-        renderer_scripts = {
-            "text": "renderers/text.py",
-            # "audio": "renderers/audio.py", # Esempi futuri
-            # "video": "renderers/video.py", # Esempi futuri
-        }
+        renderer_path = f"renderers/{task_type}"
+        image_name = f"shortlist-{task_type}-renderer"
 
-        script_to_run = renderer_scripts.get(task_type)
-        if not script_to_run or not os.path.exists(script_to_run):
-            print(f"    - 🚨 Errore: Nessun renderer trovato o definito per il tipo '{task_type}'. Rilascio il task.")
-            # Qui dovremmo implementare una logica per rilasciare il task
+        if not os.path.exists(renderer_path):
+            print(f"    - 🚨 Errore: Nessun renderer trovato in {renderer_path}. Rilascio il task.")
             self.state = NodeState.IDLE
             return
 
-        # Avvia il renderer come un sottoprocesso
-        print(f"    - Avvio il renderer: {script_to_run}")
-        renderer_process = subprocess.Popen(["python", "-u", script_to_run])
+        try:
+            # Build dell'immagine Docker per il renderer
+            print(f"    - Costruisco l'immagine Docker: {image_name}...")
+            run_command(['docker', 'build', '-t', image_name, renderer_path])
 
+            # Prepara i flag per il port mapping
+            port_mapping = []
+            if task_type == 'audio':
+                port_mapping = ['-p', '8001:8000']
+
+            # Avvio del container del renderer
+            print(f"    - Avvio il container dal'immagine: {image_name}...")
+            container_id = run_command([
+                'docker', 'run', '-d', 
+                '--name', f'{task_id}-{self.node_id[:8]}', # Nome univoco per il container
+                '-v', f'{os.path.abspath("shortlist.json")}:/app/shortlist.json:ro', # Leggi shortlist
+                '-v', f'{os.path.abspath('./output')}:/app/output', # Scrivi output
+            ] + port_mapping + [image_name])
+            print(f"    - Container {container_id[:12]} avviato.")
+
+        except Exception as e:
+            print(f"    - 🚨 Errore durante la gestione di Docker: {e}. Ritorno a IDLE.")
+            self.state = NodeState.IDLE
+            return
+
+        # Loop di monitoraggio e heartbeat
         while True:
-            # Controlla se il processo renderer è ancora attivo
-            if renderer_process.poll() is not None:
-                print(f"    - ‼️ Il processo renderer si è interrotto (codice: {renderer_process.poll()}). Rilascio il task.")
-                break # Esci dal loop di lavoro
+            # Controlla se il container è ancora attivo
+            running_containers = run_command(['docker', 'ps', '-q', '--filter', f'id={container_id}'])
+            if not running_containers:
+                print(f"    - ‼️ Il container del renderer si è interrotto. Rilascio il task.")
+                break
 
             print(f"    - [{task_id}] Il renderer è attivo. Eseguo heartbeat del task...")
             
             try:
+                # ... (la logica di heartbeat rimane la stessa) ...
                 git_pull()
                 assignments = read_json_file(ASSIGNMENTS_FILE) or {"assignments": {}}
-                
                 current_assignment = assignments.get("assignments", {}).get(task_id)
                 if not current_assignment or current_assignment["node_id"] != self.node_id:
                     print(f"    - ‼️ Persa l'assegnazione del task {task_id}. Interrompo il renderer.")
-                    renderer_process.terminate() # Termina il processo figlio
+                    run_command(['docker', 'stop', container_id], suppress_errors=True)
+                    run_command(['docker', 'rm', container_id], suppress_errors=True)
                     break
 
                 assignments["assignments"][task_id]["task_heartbeat"] = datetime.now(timezone.utc).isoformat()
@@ -225,14 +250,19 @@ class Node:
 
             except Exception as e:
                 print(f"    - 🚨 Errore durante l'heartbeat del task: {e}. Interrompo il renderer.")
-                renderer_process.terminate() # Termina il processo figlio
+                run_command(['docker', 'stop', container_id], suppress_errors=True)
+                run_command(['docker', 'rm', container_id], suppress_errors=True)
                 break
             
-            # Attendi l'intervallo dell'heartbeat, ma controlla più spesso lo stato del processo
-            for _ in range(int(TASK_HEARTBEAT_INTERVAL.total_seconds() / 5)):
-                if renderer_process.poll() is not None:
-                    break # Esci subito se il processo muore
-                time.sleep(5)
+            time.sleep(TASK_HEARTBEAT_INTERVAL.seconds)
+
+        # Pulizia finale in caso di uscita dal loop
+        try:
+            print(f"    - Pulizia del container {container_id[:12]}...")
+            run_command(['docker', 'stop', container_id], suppress_errors=True)
+            run_command(['docker', 'rm', container_id], suppress_errors=True)
+        except Exception as e:
+            print(f"    - Errore durante la pulizia del container: {e}")
 
         # Fine del lavoro, ritorno a IDLE
         print(f"Task {task_id} terminato. Ritorno a IDLE.")
