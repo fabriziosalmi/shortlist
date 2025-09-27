@@ -2,21 +2,9 @@
   "assignments": {
     "youtube_video_stream": {
       "node_id": "8d464c1d-7e2d-4c85-bc10-1440463f246c",
-      "claimed_at": "2025-09-27T20:08:51.976317+00:00",
-      "task_heartbeat": "2025-09-27T20:08:51.976317+00:00",
+      "claimed_at": "2025-09-27T20:20:46.337646+00:00",
+      "task_heartbeat": "2025-09-27T20:20:46.337646+00:00",
       "status": "claiming"
-    },
-    "icecast_audio_stream": {
-      "node_id": "8d464c1d-7e2d-4c85-bc10-1440463f246c",
-      "claimed_at": "2025-09-27T20:08:54.211889+00:00",
-      "task_heartbeat": "2025-09-27T20:08:54.211889+00:00",
-      "status": "claiming"
-    },
-    "telegram_text_posts": {
-      "node_id": "8d464c1d-7e2d-4c85-bc10-1440463f246c",
-      "claimed_at": "2025-09-27T20:00:30.434595+00:00",
-      "task_heartbeat": "2025-09-27T20:16:54.066206+00:00",
-      "status": "streaming"
     }
   }
 }
