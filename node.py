@@ -77,6 +77,23 @@ class Node:
         self.last_roster_heartbeat = None
         print(f" Nodo {self.node_id[:8]}... avviato. Stato iniziale: {self.state}")
 
+    def _recover_and_reset(self, error_source):
+        print(f"- ❌ Errore in {error_source}. Eseguo reset di emergenza per recuperare.")
+        try:
+            main_branch = run_command(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], suppress_errors=True).strip()
+            if not main_branch:
+                main_branch = 'main' # Fallback
+            run_command(['git', 'fetch', 'origin'])
+            run_command(['git', 'reset', '--hard', f'origin/{main_branch}'])
+            print("    - ✅ Reset del repository locale completato.")
+        except Exception as reset_e:
+            print(f"    - 🚨 ERRORE CRITICO durante il reset: {reset_e}.")
+        finally:
+            self.state = NodeState.IDLE
+            self.current_task = None
+            print(f"- Stato resettato a IDLE. Attendo 15s prima di riprovare.")
+            time.sleep(15)
+
     def run(self):
         while True:
             try:
@@ -86,10 +103,12 @@ class Node:
                     self.run_attempt_claim_state()
                 elif self.state == NodeState.ACTIVE:
                     self.run_active_state()
+            except subprocess.CalledProcessError as e:
+                self._recover_and_reset(f"operazione Git: {' '.join(e.cmd)}")
             except Exception as e:
-                print(f"❌ Errore critico nel ciclo principale: {e}. Ritorno a IDLE.")
+                print(f"❌ Errore critico non gestito: {e}. Riavvio il ciclo.")
                 self.state = NodeState.IDLE
-                time.sleep(30) # Pausa di sicurezza
+                time.sleep(30)
 
     def run_idle_state(self):
         # Heartbeat del roster (se necessario)
@@ -161,23 +180,12 @@ class Node:
         with open(ASSIGNMENTS_FILE, 'w') as f:
             json.dump(assignments, f, indent=2)
 
-        try:
-            commit_message = f"feat(assignments): node {self.node_id[:8]} claims {self.current_task['id']}"
-            if commit_and_push([ASSIGNMENTS_FILE], commit_message):
-                print(f"    - ✅ Rivendicazione di {self.current_task['id']} riuscita!")
-                self.state = NodeState.ACTIVE
-            else:
-                print("    - Nessuna modifica da committare. Ritorno a IDLE.")
-                self.state = NodeState.IDLE
-        except subprocess.CalledProcessError:
-            print(f"    - ❌ Rivendicazione fallita (conflitto?). Eseguo reset per recuperare.")
-            try:
-                main_branch = run_command(['git', 'rev-parse', '--abbrev-ref', 'HEAD']).strip()
-                run_command(['git', 'fetch', 'origin'])
-                run_command(['git', 'reset', '--hard', f'origin/{main_branch}'])
-                print("    - Reset del repository locale completato.")
-            except Exception as reset_e:
-                print(f"    - 🚨 ERRORE CRITICO durante il reset: {reset_e}")
+        commit_message = f"feat(assignments): node {self.node_id[:8]} claims {self.current_task['id']}"
+        if commit_and_push([ASSIGNMENTS_FILE], commit_message):
+            print(f"    - ✅ Rivendicazione di {self.current_task['id']} riuscita!")
+            self.state = NodeState.ACTIVE
+        else:
+            print("    - Nessuna modifica da committare. Ritorno a IDLE.")
             self.state = NodeState.IDLE
 
     def run_active_state(self):
