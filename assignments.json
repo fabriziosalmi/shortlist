@@ -5,6 +5,12 @@
       "claimed_at": "2025-09-27T20:00:21.213443+00:00",
       "task_heartbeat": "2025-09-27T20:00:21.213443+00:00",
       "status": "claiming"
+    },
+    "icecast_audio_stream": {
+      "node_id": "8d464c1d-7e2d-4c85-bc10-1440463f246c",
+      "claimed_at": "2025-09-27T20:00:23.974957+00:00",
+      "task_heartbeat": "2025-09-27T20:00:23.974957+00:00",
+      "status": "claiming"
     }
   }
 }
