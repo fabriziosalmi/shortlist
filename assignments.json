@@ -11,6 +11,12 @@
       "claimed_at": "2025-09-27T22:38:57.050747+00:00",
       "task_heartbeat": "2025-09-27T22:38:57.050747+00:00",
       "status": "claiming"
+    },
+    "telegram_text_posts": {
+      "node_id": "8d464c1d-7e2d-4c85-bc10-1440463f246c",
+      "claimed_at": "2025-09-27T22:39:01.512308+00:00",
+      "task_heartbeat": "2025-09-27T22:39:01.512308+00:00",
+      "status": "claiming"
     }
   }
 }
