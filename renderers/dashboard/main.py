@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 app = Flask(__name__)
 
 STATE_FILES = {
-    'roster': 'roster.json',
-    'schedule': 'schedule.json',
-    'assignments': 'assignments.json'
+    'roster': '/app/data/roster.json',
+    'schedule': '/app/data/schedule.json',
+    'assignments': '/app/data/assignments.json'
 }
 
 def read_json_file(filepath):

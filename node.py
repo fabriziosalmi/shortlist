@@ -7,7 +7,7 @@ import random
 from datetime import datetime, timezone, timedelta
 
 # --- Configuration ---
-NODE_ID_FILE = ".node_id"
+NODE_ID_FILE = f".node_id_{os.getpid()}"
 ROSTER_FILE = "roster.json"
 SCHEDULE_FILE = "schedule.json"
 ASSIGNMENTS_FILE = "assignments.json"
