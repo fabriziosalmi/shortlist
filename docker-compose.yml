@@ -12,3 +12,12 @@ services:
       - REDIS_HOST=redis
     depends_on:
       - redis
+
+  watcher_worker:
+    build: ./workers/watcher_worker
+    environment:
+      - REDIS_HOST=redis
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
