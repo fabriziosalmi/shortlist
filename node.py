@@ -208,19 +208,31 @@ class Node:
             print(f"    - Costruisco l'immagine Docker: {image_name}...")
             run_command(['docker', 'build', '-t', image_name, renderer_path])
 
+            # Prepara i volumi
+            volumes = [
+                '-v', f'{os.path.abspath("shortlist.json")}:/app/shortlist.json:ro', # Leggi shortlist
+                '-v', f'{os.path.abspath("./output")}:/app/output', # Scrivi output
+            ]
+            if task_type == 'dashboard':
+                volumes += [
+                    '-v', f'{os.path.abspath("roster.json")}:/app/roster.json:ro',
+                    '-v', f'{os.path.abspath("schedule.json")}:/app/schedule.json:ro',
+                    '-v', f'{os.path.abspath("assignments.json")}:/app/assignments.json:ro',
+                ]
+
             # Prepara i flag per il port mapping
             port_mapping = []
             if task_type == 'audio':
                 port_mapping = ['-p', '8001:8000']
+            elif task_type == 'dashboard':
+                port_mapping = ['-p', '8000:8000']
 
             # Avvio del container del renderer
             print(f"    - Avvio il container dal'immagine: {image_name}...")
             container_id = run_command([
                 'docker', 'run', '-d', 
                 '--name', f'{task_id}-{self.node_id[:8]}', # Nome univoco per il container
-                '-v', f'{os.path.abspath("shortlist.json")}:/app/shortlist.json:ro', # Leggi shortlist
-                '-v', f'{os.path.abspath('./output')}:/app/output', # Scrivi output
-            ] + port_mapping + [image_name])
+            ] + volumes + port_mapping + [image_name])
             print(f"    - Container {container_id[:12]} avviato.")
 
         except Exception as e:
