@@ -119,13 +119,14 @@ class Node:
         git_pull()
         
         schedule = read_json_file(SCHEDULE_FILE) or {"tasks": []}
+        sorted_tasks = sorted(schedule.get("tasks", []), key=lambda x: x.get("priority", 999))
         assignments = read_json_file(ASSIGNMENTS_FILE) or {"assignments": {}}
 
-        assigned_tasks = set(assignments["assignments"].keys())
+        assigned_tasks = set(assignments.get("assignments", {}).keys())
         now = datetime.now(timezone.utc)
 
         candidate_task = None
-        for task in schedule["tasks"]:
+        for task in sorted_tasks:
             task_id = task["id"]
             if task_id not in assigned_tasks:
                 print(f"    - Task libero trovato: {task_id}")
