@@ -1,0 +1,91 @@
+from flask import Flask, jsonify, Response
+import json
+import os
+from datetime import datetime, timezone
+
+app = Flask(__name__)
+
+STATE_FILES = {
+    'roster': 'roster.json',
+    'schedule': 'schedule.json',
+    'assignments': 'assignments.json'
+}
+
+def read_json_file(filepath):
+    try:
+        with open(filepath, 'r') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+@app.route('/')
+def index():
+    html = """
+    <!DOCTYPE html>
+    <html lang="it">
+    <head>
+        <meta charset="UTF-8">
+        <title>Shortlist - Dashboard dello Sciame</title>
+        <meta http-equiv="refresh" content="10">
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 2em; }
+            .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 2em; }
+            .card { background: #1e1e1e; border-radius: 8px; padding: 1.5em; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+            h1, h2 { color: #bb86fc; border-bottom: 2px solid #373737; padding-bottom: 0.5em; }
+            h1 { text-align: center; grid-column: 1 / -1; }
+            ul { list-style: none; padding: 0; }
+            li { background: #2c2c2c; margin-bottom: 0.8em; padding: 1em; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+            .node-id, .task-id { font-family: monospace; font-size: 0.9em; color: #90caf9; }
+            .status { font-weight: bold; }
+            .status-streaming { color: #81c784; }
+            .status-claiming { color: #ffb74d; }
+            .timestamp { font-size: 0.8em; color: #9e9e9e; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Dashboard dello Sciame</h1>
+            <div class="card" id="nodes-card"><h2>Nodi Attivi</h2><ul></ul></div>
+            <div class="card" id="assignments-card"><h2>Task Assegnati</h2><ul></ul></div>
+        </div>
+        <script>
+            async function fetchData() {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                const nodesList = document.querySelector('#nodes-card ul');
+                nodesList.innerHTML = '';
+                data.roster.nodes.forEach(node => {
+                    const li = document.createElement('li');
+                    const lastSeen = new Date(node.last_seen).toLocaleString();
+                    li.innerHTML = `<div><span class="node-id">${node.id.substring(0,13)}...</span></div><div class="timestamp">Last seen: ${lastSeen}</div>`;
+                    nodesList.appendChild(li);
+                });
+
+                const assignmentsList = document.querySelector('#assignments-card ul');
+                assignmentsList.innerHTML = '';
+                for (const [taskId, assignment] of Object.entries(data.assignments.assignments)) {
+                    const li = document.createElement('li');
+                    const heartbeat = new Date(assignment.task_heartbeat).toLocaleTimeString();
+                    li.innerHTML = `<div><span class="task-id">${taskId}</span><br><span class="node-id">→ ${assignment.node_id.substring(0,8)}...</span></div><div><span class="status status-${assignment.status}">${assignment.status}</span><br><span class="timestamp">Heartbeat: ${heartbeat}</span></div>`;
+                    assignmentsList.appendChild(li);
+                }
+            }
+            fetchData();
+            setInterval(fetchData, 5000); // Aggiorna ogni 5 secondi
+        </script>
+    </body>
+    </html>
+    """
+    return Response(html, mimetype='text/html')
+
+@app.route('/api/status')
+def api_status():
+    status_data = {}
+    for name, filepath in STATE_FILES.items():
+        status_data[name] = read_json_file(filepath)
+    return jsonify(status_data)
+
+if __name__ == '__main__':
+    print("[Dashboard] ✅ Avviato.")
+    app.run(host='0.0.0.0', port=8000)
