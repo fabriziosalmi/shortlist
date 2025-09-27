@@ -22,10 +22,10 @@ def read_json_file(filepath):
 def index():
     html = """
     <!DOCTYPE html>
-    <html lang="it">
+    <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>Shortlist - Dashboard dello Sciame</title>
+        <title>Shortlist - Swarm Dashboard</title>
         <meta http-equiv="refresh" content="10">
         <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 2em; }
@@ -44,9 +44,9 @@ def index():
     </head>
     <body>
         <div class="container">
-            <h1>Dashboard dello Sciame</h1>
-            <div class="card" id="nodes-card"><h2>Nodi Attivi</h2><ul></ul></div>
-            <div class="card" id="assignments-card"><h2>Task Assegnati</h2><ul></ul></div>
+            <h1>Swarm Dashboard</h1>
+            <div class="card" id="nodes-card"><h2>Active Nodes</h2><ul></ul></div>
+            <div class="card" id="assignments-card"><h2>Assigned Tasks</h2><ul></ul></div>
         </div>
         <script>
             async function fetchData() {
