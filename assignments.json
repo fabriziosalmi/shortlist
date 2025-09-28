@@ -5,6 +5,12 @@
       "claimed_at": "2025-09-28T09:48:31.934067+00:00",
       "task_heartbeat": "2025-09-28T09:48:35.743647+00:00",
       "status": "streaming"
+    },
+    "self_hosted_audio_stream": {
+      "node_id": "00b31c49-01d6-4303-b437-82d9c2b882d8",
+      "claimed_at": "2025-09-28T09:48:39.797228+00:00",
+      "task_heartbeat": "2025-09-28T09:48:39.797228+00:00",
+      "status": "claiming"
     }
   }
 }
