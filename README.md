@@ -52,6 +52,7 @@ Renderers are the "muscles" of the swarm. They are containerized applications (m
 - **Audio Renderer** (`audio`) - Port 8001: Text-to-Speech audio stream with web player interface
 - **Video Renderer** (`video`) - Port 8002: MP4 video generation with synchronized TTS audio and visual text display
 - **Web Renderer** (`web`) - Port 8003: Simple HTML interface displaying the shortlist content
+- **🆕 API Renderer** (`api`) - Port 8004: Governance API with tiered access control for secure shortlist management
 - **Text Renderer** (`text`) - Telegram bot integration for text-based social media posting
 
 ---
@@ -85,6 +86,13 @@ The Shortlist system currently includes the following working renderers:
 - **Mobile-friendly** responsive design
 - **Direct content access** at http://localhost:8003
 
+### 🛡️ API Renderer (Governance)
+- **Two-tier access control** with Maintainer and Contributor levels
+- **Automated Pull Request workflow** for secure content updates
+- **GitHub integration** with branch protection and approval flows
+- **RESTful API** with FastAPI and automatic documentation
+- **Audit trail** through GitHub's built-in version control
+
 ### 📱 Text Renderer
 - **Telegram bot integration** for social media posting
 - **Automatic content broadcasting** to configured channels
@@ -107,6 +115,7 @@ Then open these URLs in your browser:
 - Audio: http://localhost:8001
 - Video: http://localhost:8002
 - Web: http://localhost:8003
+- API Documentation: http://localhost:8004/docs (requires setup)
 
 The system will automatically start generating content from `shortlist.json` and you can see the swarm coordination in real-time!
 
@@ -154,6 +163,7 @@ Once a node is running, you can access the different interfaces:
 - **Audio Stream**: http://localhost:8001 - Listen to TTS audio of the shortlist
 - **Video Stream**: http://localhost:8002 - Watch video with synchronized audio and text
 - **Web Interface**: http://localhost:8003 - View shortlist in simple HTML format
+- **Governance API**: http://localhost:8004 - Secure API for content management (requires setup)
 
 #### 4. Enable External Integrations (Optional)
 
@@ -165,6 +175,17 @@ export TELEGRAM_API_TOKEN="your_bot_token"
 export TELEGRAM_CHAT_ID="@your_channel_name"
 python3 node.py
 ```
+
+**Example: Enabling the Governance API**
+```bash
+export GIT_AUTH_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
+export GITHUB_REPO="your-username/shortlist"
+export MAINTAINER_API_TOKEN="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+export CONTRIBUTOR_API_TOKEN="yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
+python3 node.py
+```
+
+> 📖 **For complete Governance API setup instructions, see [GOVERNANCE_SETUP.md](GOVERNANCE_SETUP.md)**
 
 #### 5. Enable the Public Ledger (Optional)
 
@@ -184,9 +205,42 @@ python3 node.py
 
 ## How to Interact with the Swarm
 
-Once the swarm is active, the only way to interact with it is to **modify the `shortlist.json` file and push the change to GitHub.**
+There are multiple ways to interact with and update the shortlist:
 
-The `watcher` function within the nodes will detect the change, and the swarm will automatically coordinate to update the broadcasts.
+### 🔧 **Direct Git Method (Traditional)**
+Modify the `shortlist.json` file and push the change to GitHub. The `watcher` function within the nodes will detect the change, and the swarm will automatically coordinate to update the broadcasts.
+
+### 🛡️ **Governance API Method (Recommended for Production)**
+Use the secure API endpoints for controlled access:
+
+**Maintainer Access (Auto-merge):**
+```bash
+curl -X POST http://localhost:8004/v1/admin/shortlist \
+  -H "Authorization: Bearer YOUR_MAINTAINER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"items": ["New Item 1", "New Item 2"]}'
+```
+
+**Contributor Access (Pull Request):**
+```bash
+curl -X POST http://localhost:8004/v1/proposals/shortlist \
+  -H "Authorization: Bearer YOUR_CONTRIBUTOR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "items": ["Proposed Item"],
+    "description": "Adding new trending topic"
+  }'
+```
+
+### 🔒 **Security & Governance**
+
+The Governance API implements a "Trust Circles" architecture:
+
+- **🔑 Maintainer Circle**: Full access with immediate updates
+- **👥 Contributor Circle**: Proposal-based access requiring review
+- **📋 Audit Trail**: All changes tracked through GitHub's version control
+- **🛡️ Branch Protection**: Configurable approval workflows
+- **🤖 Automation**: Seamless integration with existing swarm infrastructure
 
 ## License
 

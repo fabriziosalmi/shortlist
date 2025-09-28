@@ -243,6 +243,11 @@ class Node:
                 volumes += [
                     '-v', f'{os.path.abspath("./output")}:/app/output',
                 ]
+            elif task_type == 'api':
+                port_mapping = ['-p', '8004:8000']
+                volumes += [
+                    '-v', f'{os.path.abspath("./output")}:/app/data',
+                ]
 
             # Start the renderer container
             print(f"    - Starting container from image: {image_name}...")
