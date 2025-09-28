@@ -21,8 +21,8 @@
     "swarm_status_dashboard": {
       "node_id": "c6a1f48a-83c7-44f7-973c-4779a50729f0",
       "claimed_at": "2025-09-28T07:45:36.677135+00:00",
-      "task_heartbeat": "2025-09-28T07:45:36.677135+00:00",
-      "status": "claiming"
+      "task_heartbeat": "2025-09-28T07:45:40.481324+00:00",
+      "status": "streaming"
     }
   }
 }
