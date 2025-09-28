@@ -21,8 +21,8 @@
     "telegram_text_posts": {
       "node_id": "e3a1e4f2-033d-44b4-afb2-58faad3d011c",
       "claimed_at": "2025-09-28T09:32:30.202907+00:00",
-      "task_heartbeat": "2025-09-28T09:32:30.202907+00:00",
-      "status": "claiming"
+      "task_heartbeat": "2025-09-28T09:32:33.262631+00:00",
+      "status": "streaming"
     }
   }
 }
