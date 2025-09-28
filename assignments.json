@@ -18,16 +18,10 @@
       "task_heartbeat": "2025-09-28T15:52:27.790461+00:00",
       "status": "streaming"
     },
-    "shortlist_governance_api": {
-      "node_id": "41f31830-3e59-4fad-b6c2-98831af32f92",
-      "claimed_at": "2025-09-28T15:45:57.668219+00:00",
-      "task_heartbeat": "2025-09-28T15:47:04.343912+00:00",
-      "status": "streaming"
-    },
     "shortlist_dashboard": {
       "node_id": "76218959-7acf-4ad0-ac69-36c5e1c0c306",
       "claimed_at": "2025-09-28T15:46:39.468120+00:00",
-      "task_heartbeat": "2025-09-28T15:51:52.779920+00:00",
+      "task_heartbeat": "2025-09-28T15:52:54.111782+00:00",
       "status": "streaming"
     },
     "shortlist_audio": {
