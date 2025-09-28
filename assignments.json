@@ -2,8 +2,8 @@
   "assignments": {
     "swarm_status_dashboard": {
       "node_id": "e3a1e4f2-033d-44b4-afb2-58faad3d011c",
-      "claimed_at": "2025-09-28T09:27:56.558503+00:00",
-      "task_heartbeat": "2025-09-28T09:27:56.558503+00:00",
+      "claimed_at": "2025-09-28T09:29:52.232504+00:00",
+      "task_heartbeat": "2025-09-28T09:29:52.232504+00:00",
       "status": "claiming"
     },
     "youtube_video_stream": {
