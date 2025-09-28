@@ -12,24 +12,24 @@ from node import Node, NodeState
 # --- Fixtures ---
 @pytest.fixture
 def mock_node_id_file():
-    with patch('os.path.exists', return_value=False),
-         patch('uuid.uuid4', return_value=MagicMock(hex='test-node-id')),
-         patch('builtins.open', new_callable=mock_open) as mock_file_open:
+    with (patch('os.path.exists', return_value=False),
+          patch('uuid.uuid4', return_value=MagicMock(hex='test-node-id')),
+          patch('builtins.open', new_callable=mock_open) as mock_file_open):
         yield mock_file_open
 
 @pytest.fixture
 def mock_git_commands():
-    with patch('node.run_command') as mock_run_command,
-         patch('node.commit_and_push') as mock_commit_and_push,
-         patch('node.git_pull') as mock_git_pull,
-         patch('node.git_push') as mock_git_push:
+    with (patch('node.run_command') as mock_run_command,
+          patch('node.commit_and_push') as mock_commit_and_push,
+          patch('node.git_pull') as mock_git_pull,
+          patch('node.git_push') as mock_git_push):
         yield mock_run_command, mock_commit_and_push, mock_git_pull, mock_git_push
 
 @pytest.fixture
 def mock_json_file_operations():
-    with patch('node.read_json_file') as mock_read_json,
-         patch('json.dump') as mock_json_dump,
-         patch('builtins.open', new_callable=mock_open) as mock_file_open:
+    with (patch('node.read_json_file') as mock_read_json,
+          patch('json.dump') as mock_json_dump,
+          patch('builtins.open', new_callable=mock_open) as mock_file_open):
         yield mock_read_json, mock_json_dump, mock_file_open
 
 # --- Helper to run a renderer in a controlled way ---

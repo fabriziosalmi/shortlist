@@ -24,7 +24,6 @@ def get_commit_messages(path):
     return subprocess.run(["git", "log", "--pretty=%B"], cwd=path, capture_output=True, text=True, check=True).stdout.strip().split('\n')
 
 # --- Fixture for temporary Git environment ---
-@pytest. इसकी एक कॉपी है
 pytest.fixture
 def temp_e2e_repo(tmp_path):
     repo_path = tmp_path / "e2e_repo"
@@ -52,15 +51,15 @@ def test_e2e_claim_and_run_multiple_tasks_cycle(temp_e2e_repo):
     commit_all(temp_e2e_repo, "Add multiple e2e test tasks to schedule")
 
     # Mock external dependencies for the Node
-    with patch('node.run_command') as mock_run_command,
-         patch('node.commit_and_push') as mock_commit_and_push,
-         patch('node.git_pull') as mock_git_pull,
-         patch('node.git_push') as mock_git_push,
-         patch('node.read_json_file') as mock_read_json_file,
-         patch('node.json.dump') as mock_json_dump,
-         patch('builtins.open', new_callable=MagicMock) as mock_open_file,
-         patch('node.datetime') as mock_dt,
-         patch('node.time.sleep', side_effect=lambda x: None): # Speed up sleeps
+    with (patch('node.run_command') as mock_run_command,
+          patch('node.commit_and_push') as mock_commit_and_push,
+          patch('node.git_pull') as mock_git_pull,
+          patch('node.git_push') as mock_git_push,
+          patch('node.read_json_file') as mock_read_json_file,
+          patch('node.json.dump') as mock_json_dump,
+          patch('builtins.open', new_callable=MagicMock) as mock_open_file,
+          patch('node.datetime') as mock_dt,
+          patch('node.time.sleep', side_effect=lambda x: None)): # Speed up sleeps
 
         # Configure mocks
         mock_dt.now.return_value = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)

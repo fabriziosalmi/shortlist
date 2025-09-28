@@ -42,14 +42,16 @@ def temp_git_repo(tmp_path):
 def test_governor_time_based_trigger(temp_git_repo):
     # Setup initial state
     schedule_data = {"tasks": []}
-    triggers_data = {"triggers": {
-        "test_time_trigger": {
-            "condition": {"type": "time_based", "start_utc": "2025-01-01T10:00:00Z", "end_utc": "2025-01-01T11:00:00Z"},
-            "actions": [
-                {"type": "ADD_TASK", "id": "new_task_time", "task_type": "web", "priority": 10}
-            ]
+    triggers_data = {
+        "triggers": {
+            "test_time_trigger": {
+                "condition": {"type": "time_based", "start_utc": "2025-01-01T10:00:00Z", "end_utc": "2025-01-01T11:00:00Z"},
+                "actions": [
+                    {"type": "ADD_TASK", "id": "new_task_time", "task_type": "web", "priority": 10}
+                ]
+            }
         }
-    }}
+    }
     roster_data = {"nodes": []}
 
     (temp_git_repo / "schedule.json").write_text(json.dumps(schedule_data))
@@ -82,14 +84,16 @@ def test_governor_time_based_trigger(temp_git_repo):
 def test_governor_metric_based_trigger(temp_git_repo):
     # Setup initial state
     schedule_data = {"tasks": []}
-    triggers_data = {"triggers": {
-        "test_metric_trigger": {
-            "condition": {"type": "swarm_metric_agg", "metric": "cpu_load", "aggregation": "average", "operator": "gt", "threshold": 50},
-            "actions": [
-                {"type": "ADD_TASK", "id": "high_cpu_task", "task_type": "text", "priority": 5}
-            ]
+    triggers_data = {
+        "triggers": {
+            "test_metric_trigger": {
+                "condition": {"type": "swarm_metric_agg", "metric": "cpu_load", "aggregation": "average", "operator": "gt", "threshold": 50},
+                "actions": [
+                    {"type": "ADD_TASK", "id": "high_cpu_task", "task_type": "text", "priority": 5}
+                ]
+            }
         }
-    }}
+    }
     roster_data = {"nodes": [
         {"id": "node1", "last_seen": (datetime.utcnow() - timedelta(minutes=5)).isoformat(), "metrics": {"cpu_load": 60}},
         {"id": "node2", "last_seen": (datetime.utcnow() - timedelta(minutes=5)).isoformat(), "metrics": {"cpu_load": 70}}
@@ -118,14 +122,16 @@ def test_governor_metric_based_trigger(temp_git_repo):
 def test_governor_remove_task_action(temp_git_repo):
     # Setup initial state
     schedule_data = {"tasks": [{"id": "task_to_remove", "type": "web", "priority": 10}, {"id": "other_task", "type": "web", "priority": 11}]}
-    triggers_data = {"triggers": {
-        "test_remove_trigger": {
-            "condition": {"type": "time_based", "start_utc": "2025-01-01T10:00:00Z", "end_utc": "2025-01-01T11:00:00Z"},
-            "actions": [
-                {"type": "REMOVE_TASK", "task_id": "task_to_remove"}
-            ]
+    triggers_data = {
+        "triggers": {
+            "test_remove_trigger": {
+                "condition": {"type": "time_based", "start_utc": "2025-01-01T10:00:00Z", "end_utc": "2025-01-01T11:00:00Z"},
+                "actions": [
+                    {"type": "REMOVE_TASK", "task_id": "task_to_remove"}
+                ]
+            }
         }
-    }}
+    }
     roster_data = {"nodes": []}
 
     (temp_git_repo / "schedule.json").write_text(json.dumps(schedule_data))
@@ -162,14 +168,16 @@ def test_governor_swap_tasks_action(temp_git_repo):
         {"id": "task_a", "type": "web", "priority": 1},
         {"id": "task_b", "type": "web", "priority": 2}
     ]}
-    triggers_data = {"triggers": {
-        "test_swap_trigger": {
-            "condition": {"type": "time_based", "start_utc": "2025-01-01T10:00:00Z", "end_utc": "2025-01-01T11:00:00Z"},
-            "actions": [
-                {"type": "SWAP_TASKS", "task_id": "task_a", "swap_with_task_id": "task_b"}
-            ]
+    triggers_data = {
+        "triggers": {
+            "test_swap_trigger": {
+                "condition": {"type": "time_based", "start_utc": "2025-01-01T10:00:00Z", "end_utc": "2025-01-01T11:00:00Z"},
+                "actions": [
+                    {"type": "SWAP_TASKS", "task_id": "task_a", "swap_with_task_id": "task_b"}
+                ]
+            }
         }
-    }}
+    }
     roster_data = {"nodes": []}
 
     (temp_git_repo / "schedule.json").write_text(json.dumps(schedule_data))
@@ -331,14 +339,16 @@ def test_healer_stale_assignments(temp_git_repo):
 
 def test_governor_missing_json_file(temp_git_repo):
     # Setup: only create triggers.json, but not roster.json or schedule.json
-    triggers_data = {\"triggers\": {
-        \"test_time_trigger\": {
-            \"condition\": {\"type\": \"time_based\", \"start_utc\": \"2025-01-01T10:00:00Z\", \"end_utc\": \"2025-01-01T11:00:00Z\"},
-            \"actions\": [
-                {\"type\": \"ADD_TASK\", \"id\": \"new_task_time\", \"task_type\": \"web\", \"priority\": 10}
-            ]
+    triggers_data = {
+        "triggers": {
+            "test_time_trigger": {
+                "condition": {"type": "time_based", "start_utc": "2025-01-01T10:00:00Z", "end_utc": "2025-01-01T11:00:00Z"},
+                "actions": [
+                    {"type": "ADD_TASK", "id": "new_task_time", "task_type": "web", "priority": 10}
+                ]
+            }
         }
-    }}
+    }
     (temp_git_repo / \"triggers.json\").write_text(json.dumps(triggers_data))
     commit_all(temp_git_repo, \"Initial state for governor missing json test\")
 
