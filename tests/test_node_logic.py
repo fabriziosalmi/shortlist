@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, mock_open, MagicMock
 import json
+import subprocess
 from datetime import datetime, timedelta, timezone
 
 # Import the Node class and other relevant functions from node.py
@@ -166,23 +167,23 @@ def test_attempt_claim_task_stolen(mock_node_id_file, mock_git_commands, mock_js
 
 def test_read_json_file_success(mock_json_file_operations):
     mock_read_json, _, _ = mock_json_file_operations
-    mock_read_json.return_value = {\"key\": \"value\"}
+    mock_read_json.return_value = {"key": "value"}
     
-    result = Node.read_json_file(\"some_file.json\")
-    assert result == {\"key\": \"value\"}
+    result = Node.read_json_file("some_file.json")
+    assert result == {"key": "value"}
 
 def test_read_json_file_not_found(mock_json_file_operations):
     mock_read_json, _, _ = mock_json_file_operations
     mock_read_json.side_effect = FileNotFoundError
 
-    result = Node.read_json_file(\"non_existent_file.json\")
+    result = Node.read_json_file("non_existent_file.json")
     assert result is None
 
 def test_read_json_file_decode_error(mock_json_file_operations):
     mock_read_json, _, _ = mock_json_file_operations
-    mock_read_json.side_effect = json.JSONDecodeError(\"Expecting value\", \"\", 0)
+    mock_read_json.side_effect = json.JSONDecodeError("Expecting value", "", 0)
 
-    result = Node.read_json_file(\"malformed.json\")
+    result = Node.read_json_file("malformed.json")
     assert result is None
 
 # --- Test Cases for perform_roster_heartbeat ---
@@ -193,15 +194,15 @@ def test_perform_roster_heartbeat_new_node(mock_node_id_file, mock_git_commands,
 
     # Simulate roster.json not containing this node initially
     mock_read_json.side_effect = [
-        {\"nodes\": []}, # Initial read for roster heartbeat
-        {\"nodes\": []}  # read_json_file for ROSTER_FILE
+        {"nodes": []}, # Initial read for roster heartbeat
+        {"nodes": []}  # read_json_file for ROSTER_FILE
     ]
 
     node = Node()
-    node.node_id = \"test-node-id\" # Ensure consistent node_id for assertions
+    node.node_id = "test-node-id" # Ensure consistent node_id for assertions
 
-    with patch(\'psutil.cpu_percent\', return_value=10.0),\
-         patch(\'psutil.virtual_memory\', return_value=MagicMock(percent=20.0)):
+    with patch('psutil.cpu_percent', return_value=10.0),\
+         patch('psutil.virtual_memory', return_value=MagicMock(percent=20.0)):
         node.perform_roster_heartbeat()
 
     # Verify roster.json was read and written
@@ -209,32 +210,32 @@ def test_perform_roster_heartbeat_new_node(mock_node_id_file, mock_git_commands,
     mock_json_dump.assert_called_once()
 
     # Verify commit_and_push was called with correct message
-    mock_commit_and_push.assert_called_once_with([ROSTER_FILE], f\'chore(roster): heartbeat from node {node.node_id[:8]}\')
+    mock_commit_and_push.assert_called_once_with([ROSTER_FILE], f'chore(roster): heartbeat from node {node.node_id[:8]}')
 
     # Verify the content written to roster.json (mock_json_dump\'s first arg)
     written_roster = mock_json_dump.call_args[0][0]
-    assert len(written_roster[\"nodes\"]) == 1
-    assert written_roster[\"nodes\"][0][\"id\"] == node.node_id
-    assert \"last_seen\" in written_roster[\"nodes\"][0]
-    assert written_roster[\"nodes\"][0][\"metrics\"][\"cpu_load\"] == 10.0
-    assert written_roster[\"nodes\"][0][\"metrics\"][\"memory_percent\"] == 20.0
+    assert len(written_roster["nodes"]) == 1
+    assert written_roster["nodes"][0]["id"] == node.node_id
+    assert "last_seen" in written_roster["nodes"][0]
+    assert written_roster["nodes"][0]["metrics"]["cpu_load"] == 10.0
+    assert written_roster["nodes"][0]["metrics"]["memory_percent"] == 20.0
 
 def test_perform_roster_heartbeat_existing_node(mock_node_id_file, mock_git_commands, mock_json_file_operations, mock_datetime):
     mock_read_json, mock_json_dump, _ = mock_json_file_operations
     mock_run_command, mock_commit_and_push, mock_git_pull, _ = mock_git_commands
 
     # Simulate roster.json containing this node
-    initial_roster = {\"nodes\": [{\"id\": \"test-node-id\", \"started_at\": \"2025-01-01T10:00:00+00:00\", \"last_seen\": \"2025-01-01T11:00:00+00:00\", \"metrics\": {\"cpu_load\": 5.0, \"memory_percent\": 10.0}}]}
+    initial_roster = {"nodes": [{"id": "test-node-id", "started_at": "2025-01-01T10:00:00+00:00", "last_seen": "2025-01-01T11:00:00+00:00", "metrics": {"cpu_load": 5.0, "memory_percent": 10.0}}]}
     mock_read_json.side_effect = [
-        {\"nodes\": []}, # Initial read for roster heartbeat
+        {"nodes": []}, # Initial read for roster heartbeat
         initial_roster # read_json_file for ROSTER_FILE
     ]
 
     node = Node()
-    node.node_id = \"test-node-id\"
+    node.node_id = "test-node-id"
 
-    with patch(\'psutil.cpu_percent\', return_value=15.0),\
-         patch(\'psutil.virtual_memory\', return_value=MagicMock(percent=25.0)):
+    with patch('psutil.cpu_percent', return_value=15.0),\
+         patch('psutil.virtual_memory', return_value=MagicMock(percent=25.0)):
         node.perform_roster_heartbeat()
 
     # Verify roster.json was read and written
@@ -242,15 +243,15 @@ def test_perform_roster_heartbeat_existing_node(mock_node_id_file, mock_git_comm
     mock_json_dump.assert_called_once()
 
     # Verify commit_and_push was called with correct message
-    mock_commit_and_push.assert_called_once_with([ROSTER_FILE], f\'chore(roster): heartbeat from node {node.node_id[:8]}\')
+    mock_commit_and_push.assert_called_once_with([ROSTER_FILE], f'chore(roster): heartbeat from node {node.node_id[:8]}')
 
     # Verify the content written to roster.json (mock_json_dump\'s first arg)
     written_roster = mock_json_dump.call_args[0][0]
-    assert len(written_roster[\"nodes\"]) == 1
-    assert written_roster[\"nodes\"][0][\"id\"] == node.node_id
-    assert written_roster[\"nodes\"][0][\"metrics\"][\"cpu_load\"] == 15.0
-    assert written_roster[\"nodes\"][0][\"metrics\"][\"memory_percent\"] == 25.0
-    assert written_roster[\"nodes\"][0][\"last_seen\"] > initial_roster[\"nodes\"][0][\"last_seen\"] # last_seen should be updated
+    assert len(written_roster["nodes"]) == 1
+    assert written_roster["nodes"][0]["id"] == node.node_id
+    assert written_roster["nodes"][0]["metrics"]["cpu_load"] == 15.0
+    assert written_roster["nodes"][0]["metrics"]["memory_percent"] == 25.0
+    assert written_roster["nodes"][0]["last_seen"] > initial_roster["nodes"][0]["last_seen"] # last_seen should be updated
 
 # --- Test Cases for _recover_and_reset ---
 def test_recover_and_reset_git_error(mock_node_id_file, mock_git_commands, mock_json_file_operations, mock_datetime):
@@ -258,17 +259,17 @@ def test_recover_and_reset_git_error(mock_node_id_file, mock_git_commands, mock_
 
     node = Node()
     node.state = NodeState.ACTIVE
-    node.current_task = {\"id\": \"task1\", \"type\": \"dashboard\", \"priority\": 1}
+    node.current_task = {"id": "task1", "type": "dashboard", "priority": 1}
 
     # Simulate a git error
-    mock_run_command.side_effect = subprocess.CalledProcessError(1, \"git pull\", stderr=\"fatal: unable to access \'...\': some error\")
+    mock_run_command.side_effect = subprocess.CalledProcessError(1, "git pull", stderr="fatal: unable to access '...': some error")
 
     with patch('node.time.sleep'): # Mock sleep to speed up test
-        node._recover_and_reset(\"Git operation\")
+        node._recover_and_reset("Git operation")
 
     # Verify git commands for reset were called
-    mock_run_command.assert_any_call([\'git\', \'fetch\', \'origin\'])
-    mock_run_command.assert_any_call([\'git\', \'reset\', \'--hard\', \'origin/main\']) # Assuming \'main\' branch
+    mock_run_command.assert_any_call(['git', 'fetch', 'origin'])
+    mock_run_command.assert_any_call(['git', 'reset', '--hard', 'origin/main']) # Assuming 'main' branch
 
     # Verify state reset
     assert node.state == NodeState.IDLE
@@ -280,26 +281,26 @@ def test_active_state_task_heartbeat_and_release(mock_node_id_file, mock_git_com
     mock_run_command, mock_commit_and_push, mock_git_pull, _ = mock_git_commands
 
     node = Node()
-    node.node_id = \"test-node-id\"
-    node.current_task = {\"id\": \"task1\", \"type\": \"dashboard\", \"priority\": 1}
+    node.node_id = "test-node-id"
+    node.current_task = {"id": "task1", "type": "dashboard", "priority": 1}
     node.state = NodeState.ACTIVE
 
     # Mock Docker commands: build, run, ps (running), ps (stopped), stop, rm
     mock_run_command.side_effect = [
-        \"build_output\", # docker build
-        \"container_id_123\", # docker run -d
-        \"container_id_123\", # docker ps -q (first check, container is running)
-        \"\", # docker ps -q (second check, container is stopped, to break the loop)
-        \"\", # docker stop
-        \"\"  # docker rm
+        "build_output", # docker build
+        "container_id_123", # docker run -d
+        "container_id_123", # docker ps -q (first check, container is running)
+        "", # docker ps -q (second check, container is stopped, to break the loop)
+        "", # docker stop
+        ""  # docker rm
     ]
 
     # Mock read_json_file for assignments during heartbeat
     # Simulate that the assignment is still ours for the first heartbeat, then it\'s lost
-    initial_assignments = {\"assignments\": {\"task1\": {\"node_id\": node.node_id, \"task_heartbeat\": (mock_datetime.now.return_value - timedelta(seconds=30)).isoformat()}}}
+    initial_assignments = {"assignments": {"task1": {"node_id": node.node_id, "task_heartbeat": (mock_datetime.now.return_value - timedelta(seconds=30)).isoformat()}}}
     mock_read_json.side_effect = [
         initial_assignments, # First read for heartbeat (assignment is ours)
-        {\"assignments\": {}} # Second read for heartbeat (assignment is lost)
+        {"assignments": {}} # Second read for heartbeat (assignment is lost)
     ]
 
     # Mock time.sleep to control the loop iterations
@@ -307,11 +308,11 @@ def test_active_state_task_heartbeat_and_release(mock_node_id_file, mock_git_com
         node.run_active_state()
 
     # Verify Docker commands
-    mock_run_command.assert_any_call([\'docker\', \'build\', \'-t\', \'shortlist-dashboard-renderer\', \'renderers/dashboard\'])
-    mock_run_command.assert_any_call([\'docker\', \'run\', \'-d\', \'--name\', f\'task1-{node.node_id[:8]}\', \'-v\', f\'{os.path.abspath(\"shortlist.json\")}:/app/data/shortlist.json:ro\', \'-v\', f\'{os.path.abspath(\"./output\")}:/app/output\', \'-p\', \'8000:8000\', \'shortlist-dashboard-renderer\'])
-    mock_run_command.assert_any_call([\'docker\', \'ps\', \'-q\', \'--filter\', \'id=container_id_123\'])
-    mock_run_command.assert_any_call([\'docker\', \'stop\', \'container_id_123\'], suppress_errors=True)
-    mock_run_command.assert_any_call([\'docker\', \'rm\', \'container_id_123\'], suppress_errors=True)
+    mock_run_command.assert_any_call(['docker', 'build', '-t', 'shortlist-dashboard-renderer', 'renderers/dashboard'])
+    mock_run_command.assert_any_call(['docker', 'run', '-d', '--name', f'task1-{node.node_id[:8]}', '-v', f'{os.path.abspath("shortlist.json")}:/app/data/shortlist.json:ro', '-v', f'{os.path.abspath("./output")}:/app/output', '-p', '8000:8000', 'shortlist-dashboard-renderer'])
+    mock_run_command.assert_any_call(['docker', 'ps', '-q', '--filter', 'id=container_id_123'])
+    mock_run_command.assert_any_call(['docker', 'stop', 'container_id_123'], suppress_errors=True)
+    mock_run_command.assert_any_call(['docker', 'rm', 'container_id_123'], suppress_errors=True)
 
     # Verify heartbeat update and commit
     assert mock_json_dump.call_count >= 1 # At least one dump for heartbeat
@@ -326,31 +327,31 @@ def test_active_state_lost_assignment(mock_node_id_file, mock_git_commands, mock
     mock_run_command, mock_commit_and_push, mock_git_pull, _ = mock_git_commands
 
     node = Node()
-    node.node_id = \"test-node-id\"
-    node.current_task = {\"id\": \"task1\", \"type\": \"dashboard\", \"priority\": 1}
+    node.node_id = "test-node-id"
+    node.current_task = {"id": "task1", "type": "dashboard", "priority": 1}
     node.state = NodeState.ACTIVE
 
     # Mock Docker commands: build, run, ps (running), stop, rm
     mock_run_command.side_effect = [
-        \"build_output\", # docker build
-        \"container_id_123\", # docker run -d
-        \"container_id_123\", # docker ps -q (container is running)
-        \"\", # docker stop
-        \"\"  # docker rm
+        "build_output", # docker build
+        "container_id_123", # docker run -d
+        "container_id_123", # docker ps -q (container is running)
+        "", # docker stop
+        ""  # docker rm
     ]
 
     # Simulate that the assignment is lost immediately after starting
     mock_read_json.side_effect = [
-        {\"assignments\": {\"task1\": {\"node_id\": node.node_id, \"task_heartbeat\": (mock_datetime.now.return_value - timedelta(seconds=30)).isoformat()}}}, # First read for heartbeat (assignment is ours)
-        {\"assignments\": {\"task1\": {\"node_id\": \"another_node\", \"task_heartbeat\": (mock_datetime.now.return_value - timedelta(seconds=10)).isoformat()}}} # Second read, assignment lost
+        {"assignments": {"task1": {"node_id": node.node_id, "task_heartbeat": (mock_datetime.now.return_value - timedelta(seconds=30)).isoformat()}}}, # First read for heartbeat (assignment is ours)
+        {"assignments": {"task1": {"node_id": "another_node", "task_heartbeat": (mock_datetime.now.return_value - timedelta(seconds=10)).isoformat()}}} # Second read, assignment lost
     ]
 
     with patch('node.time.sleep', side_effect=[0.1, 0.1]): # Allow a few sleeps
         node.run_active_state()
 
     # Verify Docker container was stopped and removed
-    mock_run_command.assert_any_call([\'docker\', \'stop\', \'container_id_123\'], suppress_errors=True)
-    mock_run_command.assert_any_call([\'docker\', \'rm\', \'container_id_123\'], suppress_errors=True)
+    mock_run_command.assert_any_call(['docker', 'stop', 'container_id_123'], suppress_errors=True)
+    mock_run_command.assert_any_call(['docker', 'rm', 'container_id_123'], suppress_errors=True)
 
     # Verify state transition
     assert node.state == NodeState.IDLE

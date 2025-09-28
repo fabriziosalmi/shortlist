@@ -1,45 +1,9 @@
 {
   "assignments": {
-    "telegram_text_posts": {
-      "node_id": "d703e327-1eb4-4671-9916-ea1628dc64c0",
-      "claimed_at": "2025-09-28T15:54:49.891837+00:00",
-      "task_heartbeat": "2025-09-28T16:19:27.404655+00:00",
-      "status": "streaming"
-    },
-    "shortlist_video": {
-      "node_id": "831e0f8d-b1e0-468e-b267-64cbe1671002",
-      "claimed_at": "2025-09-28T16:10:39.222954+00:00",
-      "task_heartbeat": "2025-09-28T16:19:56.244840+00:00",
-      "status": "streaming"
-    },
-    "shortlist_admin_ui": {
-      "node_id": "41f31830-3e59-4fad-b6c2-98831af32f92",
-      "claimed_at": "2025-09-28T15:48:07.656483+00:00",
-      "task_heartbeat": "2025-09-28T16:20:07.285648+00:00",
-      "status": "streaming"
-    },
-    "shortlist_dashboard": {
-      "node_id": "76218959-7acf-4ad0-ac69-36c5e1c0c306",
-      "claimed_at": "2025-09-28T15:46:39.468120+00:00",
-      "task_heartbeat": "2025-09-28T16:19:30.404414+00:00",
-      "status": "streaming"
-    },
-    "shortlist_audio": {
-      "node_id": "addc7d77-c468-4839-92b6-564938ee0ade",
-      "claimed_at": "2025-09-28T16:02:44.728847+00:00",
-      "task_heartbeat": "2025-09-28T16:19:28.575059+00:00",
-      "status": "streaming"
-    },
-    "shortlist_web": {
-      "node_id": "0992d5a9-c7b7-4fff-aa50-316d1d4e0f50",
-      "claimed_at": "2025-09-28T16:08:45.333880+00:00",
-      "task_heartbeat": "2025-09-28T16:20:06.217151+00:00",
-      "status": "streaming"
-    },
-    "shortlist_governance_api": {
-      "node_id": "b9ed010d-d67f-4e39-8fa9-dabe5314f3d6",
-      "claimed_at": "2025-09-28T16:20:02.098255+00:00",
-      "task_heartbeat": "2025-09-28T16:20:02.098255+00:00",
+    "e2e_task_1": {
+      "node_id": "e2e-test-node",
+      "claimed_at": "2025-01-01T12:00:00+00:00",
+      "task_heartbeat": "2025-01-01T12:00:00+00:00",
       "status": "claiming"
     }
   }

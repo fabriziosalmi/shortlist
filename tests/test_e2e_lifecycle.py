@@ -6,8 +6,12 @@ import threading
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 import os
+from pathlib import Path
 
 # Import the Node class from node.py
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from node import Node, NodeState, ROSTER_FILE, ASSIGNMENTS_FILE, SCHEDULE_FILE
 
 # --- Helper for Git setup ---
@@ -24,7 +28,7 @@ def get_commit_messages(path):
     return subprocess.run(["git", "log", "--pretty=%B"], cwd=path, capture_output=True, text=True, check=True).stdout.strip().split('\n')
 
 # --- Fixture for temporary Git environment ---
-pytest.fixture
+@pytest.fixture
 def temp_e2e_repo(tmp_path):
     repo_path = tmp_path / "e2e_repo"
     repo_path.mkdir()
@@ -32,14 +36,13 @@ def temp_e2e_repo(tmp_path):
 
     # Create initial empty files
     (repo_path / ROSTER_FILE).write_text(json.dumps({"nodes": []}))
-    (repo_path / ASSIGNMENTS_FILE).write_text(json.dumps({"tasks": {}}))
+    (repo_path / ASSIGNMENTS_FILE).write_text(json.dumps({"assignments": {}}))
     (repo_path / SCHEDULE_FILE).write_text(json.dumps({"tasks": []}))
     commit_all(repo_path, "Initial empty state")
 
     yield repo_path
 
 # --- Test Case for E2E Lifecycle ---
-
 def test_e2e_claim_and_run_multiple_tasks_cycle(temp_e2e_repo):
     # Setup: Create a schedule with multiple tasks
     schedule_data = {"tasks": [
@@ -51,15 +54,13 @@ def test_e2e_claim_and_run_multiple_tasks_cycle(temp_e2e_repo):
     commit_all(temp_e2e_repo, "Add multiple e2e test tasks to schedule")
 
     # Mock external dependencies for the Node
-    with (patch('node.run_command') as mock_run_command,
-          patch('node.commit_and_push') as mock_commit_and_push,
-          patch('node.git_pull') as mock_git_pull,
-          patch('node.git_push') as mock_git_push,
-          patch('node.read_json_file') as mock_read_json_file,
-          patch('node.json.dump') as mock_json_dump,
-          patch('builtins.open', new_callable=MagicMock) as mock_open_file,
-          patch('node.datetime') as mock_dt,
-          patch('node.time.sleep', side_effect=lambda x: None)): # Speed up sleeps
+    with patch('node.run_command') as mock_run_command,\
+         patch('node.commit_and_push') as mock_commit_and_push,\
+         patch('node.git_pull') as mock_git_pull,\
+         patch('node.git_push') as mock_git_push,\
+         patch('node.read_json_file') as mock_read_json_file,\
+         patch('node.datetime') as mock_dt,\
+         patch('time.sleep') as mock_sleep: # Speed up all sleeps
 
         # Configure mocks
         mock_dt.now.return_value = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -72,13 +73,74 @@ def test_e2e_claim_and_run_multiple_tasks_cycle(temp_e2e_repo):
         def mock_run_command_impl(command, cwd=None, **kwargs):
             if cwd is None: cwd = temp_e2e_repo
             return subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=True, **kwargs).stdout.strip()
-        mock_run_command.side_effect = mock_run_command_impl
+
+        # Create a more sophisticated mock for run_command that handles Docker commands dynamically
+        docker_containers = {}
+        heartbeat_counts = {}
+        max_task_heartbeats = 3  # Stop container after this many heartbeats
+
+        def handle_docker_command(command, **kwargs):
+            if 'docker' not in command[0]:
+                return mock_run_command_impl(command, **kwargs)
+            if command[1] == 'build':
+                return "build_output"
+            elif command[1] == 'run':
+                # Extract task ID from the container name argument (should be after --name)
+                name_idx = command.index('--name')
+                if name_idx + 1 < len(command):
+                    # Example name: 'e2e_task_1-e2e-test'
+                    container_name = command[name_idx + 1]
+                    task_id = container_name.split('-')[0]  # Get just e2e_task_1 part
+                else:
+                    task_id = next(arg for arg in command if 'e2e_task' in arg)
+                
+                # Use the full task ID as part of container ID
+                container_id = f"container_id_{task_id}"
+                docker_containers[container_id] = True
+                heartbeat_counts[container_id] = 0
+                return container_id
+            elif command[1] == 'ps':
+                # For 'ps' commands that check container status
+                if '--filter' in command:
+                    # Format expected is: --filter id=container_id
+                    filter_idx = command.index('--filter')
+                    if filter_idx + 1 < len(command):
+                        container_id = command[filter_idx + 1].split('=')[-1]
+                        if docker_containers.get(container_id):
+                            heartbeat_counts[container_id] = heartbeat_counts.get(container_id, 0) + 1
+                            # Simulate container exit after N heartbeats
+                            if heartbeat_counts[container_id] >= max_task_heartbeats:
+                                docker_containers[container_id] = False
+                                return ""
+                            # Return running container ID (that's what Docker ps -q returns)
+                            return container_id
+                    return ""
+                return ""
+            elif command[1] == 'stop':
+                container_id = command[-1]
+                docker_containers[container_id] = False
+                return ""
+            elif command[1] == 'rm':
+                return ""
+            return ""
+
+        mock_run_command.side_effect = handle_docker_command
 
         def mock_commit_and_push_impl(files, message):
+            # Convert relative paths to absolute
+            abs_files = [os.path.join(temp_e2e_repo, f) if not os.path.isabs(f) else f for f in files]
             # Simulate git add, commit, push on the temp repo
-            subprocess.run(["git", "add"] + files, cwd=temp_e2e_repo, check=True)
+            subprocess.run(["git", "add"] + abs_files, cwd=temp_e2e_repo, check=True)
             status_result = subprocess.run(["git", "status", "--porcelain"], cwd=temp_e2e_repo, capture_output=True, text=True, check=True).stdout.strip()
-            if any(file in status_result for file in files):
+            # Check if any of the files appear in status (accounting for relative vs absolute paths)
+            changed = False
+            for file in files:
+                abs_path = os.path.join(temp_e2e_repo, file) if not os.path.isabs(file) else file
+                rel_path = os.path.relpath(abs_path, temp_e2e_repo)
+                if rel_path in status_result:
+                    changed = True
+                    break
+            if changed:
                 subprocess.run(["git", "commit", "-m", message], cwd=temp_e2e_repo, check=True)
                 # No actual push needed for local repo test, but simulate success
                 return True
@@ -86,7 +148,8 @@ def test_e2e_claim_and_run_multiple_tasks_cycle(temp_e2e_repo):
         mock_commit_and_push.side_effect = mock_commit_and_push_impl
 
         def mock_git_pull_impl():
-            subprocess.run(["git", "pull"], cwd=temp_e2e_repo, check=True)
+            # Simulate a successful git pull without actually pulling from a remote
+            pass
         mock_git_pull.side_effect = mock_git_pull_impl
 
         def mock_git_push_impl():
@@ -98,47 +161,24 @@ def test_e2e_claim_and_run_multiple_tasks_cycle(temp_e2e_repo):
         def mock_read_json_file_impl(filepath):
             full_path = temp_e2e_repo / filepath
             if full_path.exists():
-                with open(full_path, 'r') as f:
+                with full_path.open('r') as f:
                     return json.load(f)
             return None
         mock_read_json_file.side_effect = mock_read_json_file_impl
-
-        # Mock json.dump to write to the temp_e2e_repo
-        def mock_json_dump_impl(data, fp, **kwargs):
-            # Get the file path from the mock_open_file object
-            file_path = fp.name
-            with open(file_path, 'w') as f:
-                json.dump(data, f, **kwargs)
-        mock_json_dump.side_effect = mock_json_dump_impl
-
-        # Mock Docker container operations (start/stop/is_running)
-        # Simulate containers that start and stay running
-        mock_run_command.side_effect = [
-            "build_output", # docker build
-            "container_id_e2e_1", # docker run -d for task 1
-            "container_id_e2e_1", # docker ps -q (container 1 is running)
-            "build_output", # docker build
-            "container_id_e2e_2", # docker run -d for task 2
-            "container_id_e2e_2", # docker ps -q (container 2 is running)
-            "build_output", # docker build
-            "container_id_e2e_3", # docker run -d for task 3
-            "container_id_e2e_3", # docker ps -q (container 3 is running)
-            "", # docker stop
-            ""  # docker rm
-        ] * 5 # Repeat to allow multiple heartbeats and cycles
 
         # Instantiate the Node, configured to use the temporary repo
         with patch('os.getcwd', return_value=str(temp_e2e_repo)):
             node = Node()
             node.node_id = "e2e-test-node"
-            (temp_e2e_repo / ".node_id_" + str(os.getpid())).write_text(node.node_id)
+            node_id_file = temp_e2e_repo / f".node_id_{os.getpid()}"
+            node_id_file.write_text(node.node_id)
 
             # Run the node's main loop in a separate thread
             stop_event = threading.Event()
             def run_node_target():
                 # We need to ensure the node runs enough cycles to claim all tasks
                 # and perform a few heartbeats for each
-                for _ in range(10): # Run for a fixed number of cycles
+                for _ in range(30): # Run for a fixed number of cycles
                     if stop_event.is_set():
                         break
                     try:
@@ -152,10 +192,21 @@ def test_e2e_claim_and_run_multiple_tasks_cycle(temp_e2e_repo):
             node_thread.daemon = True # Allow main program to exit even if thread is still running
             node_thread.start()
 
-            # Let the node run for a limited time
-            time.sleep(5) # Allow enough time for multiple cycles and claims
+            # Run for a fixed number of iterations instead of time-based waiting
+            iterations = 0
+            max_iterations = 50  # Increased from 10 to give more time for all tasks
+            while iterations < max_iterations:
+                iterations += 1
+                time.sleep(0.1)
+                
+                # Check if we have all the expected commits
+                commit_messages = get_commit_messages(temp_e2e_repo)
+                if all(f"feat(assignments): node {node.node_id[:8]} claims {task_id}" in ' '.join(commit_messages)
+                       for task_id in ["e2e_task_1", "e2e_task_2", "e2e_task_3"]):
+                    break
+            
             stop_event.set()
-            node_thread.join(timeout=5) # Wait for thread to finish, with a timeout
+            node_thread.join(timeout=1)  # Reduced timeout since we're not actually sleeping
 
             # Verifications
             commit_messages = get_commit_messages(temp_e2e_repo)
@@ -174,5 +225,7 @@ def test_e2e_claim_and_run_multiple_tasks_cycle(temp_e2e_repo):
 
             # Verify final state of assignments.json (all tasks should be assigned to this node)
             final_assignments = json.loads((temp_e2e_repo / ASSIGNMENTS_FILE).read_text())
+            assert "assignments" in final_assignments
             for task_id in ["e2e_task_1", "e2e_task_2", "e2e_task_3"]:
-                assert final_assignments["tasks"][task_id]["node_id"] == node.node_id
+                assert task_id in final_assignments["assignments"]
+                assert final_assignments["assignments"][task_id]["node_id"] == node.node_id

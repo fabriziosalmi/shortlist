@@ -1,26 +1,33 @@
 import pytest
-import json
-import subprocess
 from datetime import datetime, timedelta, timezone
-from dateutil.parser import parse as date_parse
 from unittest.mock import patch, MagicMock
-import os
-import shutil
+from pathlib import Path
+
+from test_utils import (
+    BASE_DATETIME, create_task, create_node_data,
+    write_json_file, get_git_commands
+)
 
 # Import the main functions from the renderers
 # Adjust import paths as necessary based on your project structure
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from renderers.governor.main import main as governor_main
 from renderers.healer.main import main as healer_main
 
 # --- Helper for Git setup ---
-def init_git_repo(path):
-    subprocess.run(["git", "init"], cwd=path, check=True)
-    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=path, check=True)
-    subprocess.run(["git", "config", "user.name", "Test User"], cwd=path, check=True)
+def init_git_repo(path: Path) -> None:
+    """Initialize a Git repository for testing."""
+    git_cmds = get_git_commands()
+    for cmd in [git_cmds["init"], git_cmds["config_email"], git_cmds["config_name"]]:
+        subprocess.run(cmd, cwd=path, check=True)
 
-def commit_all(path, message):
-    subprocess.run(["git", "add", "."], cwd=path, check=True)
-    subprocess.run(["git", "commit", "-m", message], cwd=path, check=True)
+def commit_all(path: Path, message: str) -> None:
+    """Add all changes and commit with the given message."""
+    git_cmds = get_git_commands()
+    subprocess.run(git_cmds["add"], cwd=path, check=True)
+    subprocess.run(git_cmds["commit"] + [message], cwd=path, check=True)
 
 def get_latest_commit_message(path):
     return subprocess.run(["git", "log", "-1", "--pretty=%B"], cwd=path, capture_output=True, text=True, check=True).stdout.strip()
@@ -41,11 +48,19 @@ def temp_git_repo(tmp_path):
 
 def test_governor_time_based_trigger(temp_git_repo):
     # Setup initial state
+    # Setup initial state
     schedule_data = {"tasks": []}
+    start_time = BASE_DATETIME.replace(hour=10)
+    end_time = start_time + timedelta(hours=1)
+    
     triggers_data = {
         "triggers": {
             "test_time_trigger": {
-                "condition": {"type": "time_based", "start_utc": "2025-01-01T10:00:00Z", "end_utc": "2025-01-01T11:00:00Z"},
+                "condition": {
+                    "type": "time_based",
+                    "start_utc": start_time.isoformat(),
+                    "end_utc": end_time.isoformat()
+                },
                 "actions": [
                     {"type": "ADD_TASK", "id": "new_task_time", "task_type": "web", "priority": 10}
                 ]
@@ -54,9 +69,9 @@ def test_governor_time_based_trigger(temp_git_repo):
     }
     roster_data = {"nodes": []}
 
-    (temp_git_repo / "schedule.json").write_text(json.dumps(schedule_data))
-    (temp_git_repo / "triggers.json").write_text(json.dumps(triggers_data))
-    (temp_git_repo / "roster.json").write_text(json.dumps(roster_data))
+    write_json_file(temp_git_repo / "schedule.json", schedule_data)
+    write_json_file(temp_git_repo / "triggers.json", triggers_data)
+    write_json_file(temp_git_repo / "roster.json", roster_data)
     commit_all(temp_git_repo, "Initial state for governor time test")
 
     # Mock datetime to be within the trigger window
@@ -94,14 +109,15 @@ def test_governor_metric_based_trigger(temp_git_repo):
             }
         }
     }
+    five_min_ago = BASE_DATETIME - timedelta(minutes=5)
     roster_data = {"nodes": [
-        {"id": "node1", "last_seen": (datetime.utcnow() - timedelta(minutes=5)).isoformat(), "metrics": {"cpu_load": 60}},
-        {"id": "node2", "last_seen": (datetime.utcnow() - timedelta(minutes=5)).isoformat(), "metrics": {"cpu_load": 70}}
+        create_node_data("node1", last_seen=five_min_ago, metrics={"cpu_load": 60}),
+        create_node_data("node2", last_seen=five_min_ago, metrics={"cpu_load": 70})
     ]}
 
-    (temp_git_repo / "schedule.json").write_text(json.dumps(schedule_data))
-    (temp_git_repo / "triggers.json").write_text(json.dumps(triggers_data))
-    (temp_git_repo / "roster.json").write_text(json.dumps(roster_data))
+    write_json_file(temp_git_repo / "schedule.json", schedule_data)
+    write_json_file(temp_git_repo / "triggers.json", triggers_data)
+    write_json_file(temp_git_repo / "roster.json", roster_data)
     commit_all(temp_git_repo, "Initial state for governor metric test")
 
     # Run governor main loop once (mocking sleep to prevent infinite loop)
@@ -121,7 +137,10 @@ def test_governor_metric_based_trigger(temp_git_repo):
 
 def test_governor_remove_task_action(temp_git_repo):
     # Setup initial state
-    schedule_data = {"tasks": [{"id": "task_to_remove", "type": "web", "priority": 10}, {"id": "other_task", "type": "web", "priority": 11}]}
+    schedule_data = {"tasks": [
+        create_task("task_to_remove", "web", priority=10),
+        create_task("other_task", "web", priority=11)
+    ]}
     triggers_data = {
         "triggers": {
             "test_remove_trigger": {
@@ -134,9 +153,9 @@ def test_governor_remove_task_action(temp_git_repo):
     }
     roster_data = {"nodes": []}
 
-    (temp_git_repo / "schedule.json").write_text(json.dumps(schedule_data))
-    (temp_git_repo / "triggers.json").write_text(json.dumps(triggers_data))
-    (temp_git_repo / "roster.json").write_text(json.dumps(roster_data))
+    write_json_file(temp_git_repo / "schedule.json", schedule_data)
+    write_json_file(temp_git_repo / "triggers.json", triggers_data)
+    write_json_file(temp_git_repo / "roster.json", roster_data)
     commit_all(temp_git_repo, "Initial state for governor remove test")
 
     # Mock datetime to be within the trigger window
@@ -165,8 +184,8 @@ def test_governor_remove_task_action(temp_git_repo):
 def test_governor_swap_tasks_action(temp_git_repo):
     # Setup initial state
     schedule_data = {"tasks": [
-        {"id": "task_a", "type": "web", "priority": 1},
-        {"id": "task_b", "type": "web", "priority": 2}
+        create_task("task_a", "web", priority=1),
+        create_task("task_b", "web", priority=2)
     ]}
     triggers_data = {
         "triggers": {
@@ -180,9 +199,9 @@ def test_governor_swap_tasks_action(temp_git_repo):
     }
     roster_data = {"nodes": []}
 
-    (temp_git_repo / "schedule.json").write_text(json.dumps(schedule_data))
-    (temp_git_repo / "triggers.json").write_text(json.dumps(triggers_data))
-    (temp_git_repo / "roster.json").write_text(json.dumps(roster_data))
+    write_json_file(temp_git_repo / "schedule.json", schedule_data)
+    write_json_file(temp_git_repo / "triggers.json", triggers_data)
+    write_json_file(temp_git_repo / "roster.json", roster_data)
     commit_all(temp_git_repo, "Initial state for governor swap test")
 
     # Mock datetime to be within the trigger window
@@ -212,15 +231,14 @@ def test_governor_swap_tasks_action(temp_git_repo):
 
 def test_healer_zombie_assignments(temp_git_repo):
     # Setup initial state
-    now = datetime.utcnow()
-    alive_node1_last_seen = (now - timedelta(minutes=5)).isoformat()
-    alive_node2_last_seen = (now - timedelta(minutes=5)).isoformat()
-    dead_node_last_seen = (now - timedelta(minutes=20)).isoformat() # Older than 15 min timeout
+    now = BASE_DATETIME
+    alive_time = now - timedelta(minutes=5)
+    dead_time = now - timedelta(minutes=20)  # Older than 15 min timeout
 
     roster_data = {"nodes": [
-        {"id": "node1", "last_seen": alive_node1_last_seen},
-        {"id": "node2", "last_seen": alive_node2_last_seen},
-        {"id": "dead_node", "last_seen": dead_node_last_seen}
+        create_node_data("node1", last_seen=alive_time),
+        create_node_data("node2", last_seen=alive_time),
+        create_node_data("dead_node", last_seen=dead_time)
     ]}
     assignments_data = {"tasks": {
         "task_to_node1": {"node_id": "node1", "task_heartbeat": now.isoformat()},
@@ -229,8 +247,8 @@ def test_healer_zombie_assignments(temp_git_repo):
         "non_existent_node_task": {"node_id": "node_x", "task_heartbeat": now.isoformat()}
     }}
 
-    (temp_git_repo / "roster.json").write_text(json.dumps(roster_data))
-    (temp_git_repo / "assignments.json").write_text(json.dumps(assignments_data))
+    write_json_file(temp_git_repo / "roster.json", roster_data)
+    write_json_file(temp_git_repo / "assignments.json", assignments_data)
     commit_all(temp_git_repo, "Initial state for healer zombie test")
 
     # Mock datetime
@@ -259,21 +277,20 @@ def test_healer_zombie_assignments(temp_git_repo):
 
 def test_healer_no_anomaly(temp_git_repo):
     # Setup initial state with no anomalies
-    now = datetime.utcnow()
-    alive_node1_last_seen = (now - timedelta(minutes=5)).isoformat()
-    alive_node2_last_seen = (now - timedelta(minutes=5)).isoformat()
+    now = BASE_DATETIME
+    alive_time = now - timedelta(minutes=5)
 
     roster_data = {"nodes": [
-        {"id": "node1", "last_seen": alive_node1_last_seen},
-        {"id": "node2", "last_seen": alive_node2_last_seen}
+        create_node_data("node1", last_seen=alive_time),
+        create_node_data("node2", last_seen=alive_time)
     ]}
     assignments_data = {"tasks": {
         "task_to_node1": {"node_id": "node1", "task_heartbeat": now.isoformat()},
         "task_to_node2": {"node_id": "node2", "task_heartbeat": now.isoformat()}
     }}
 
-    (temp_git_repo / "roster.json").write_text(json.dumps(roster_data))
-    (temp_git_repo / "assignments.json").write_text(json.dumps(assignments_data))
+    write_json_file(temp_git_repo / "roster.json", roster_data)
+    write_json_file(temp_git_repo / "assignments.json", assignments_data)
     commit_all(temp_git_repo, "Initial state for healer no anomaly test")
 
     # Mock datetime
@@ -297,20 +314,20 @@ def test_healer_no_anomaly(temp_git_repo):
 
 def test_healer_stale_assignments(temp_git_repo):
     # Setup initial state
-    now = datetime.utcnow()
-    alive_node_last_seen = (now - timedelta(minutes=5)).isoformat()
-    stale_heartbeat_time = (now - timedelta(minutes=20)).isoformat() # Older than NODE_HEARTBEAT_TIMEOUT_MINUTES (15 min)
+    now = BASE_DATETIME
+    alive_time = now - timedelta(minutes=5)
+    stale_time = now - timedelta(minutes=20)  # Older than NODE_HEARTBEAT_TIMEOUT_MINUTES (15 min)
 
     roster_data = {"nodes": [
-        {"id": "node1", "last_seen": alive_node_last_seen}
+        create_node_data("node1", last_seen=alive_time)
     ]}
     assignments_data = {"tasks": {
         "active_task": {"node_id": "node1", "task_heartbeat": now.isoformat()},
         "stale_task": {"node_id": "node1", "task_heartbeat": stale_heartbeat_time}
     }}
 
-    (temp_git_repo / "roster.json").write_text(json.dumps(roster_data))
-    (temp_git_repo / "assignments.json").write_text(json.dumps(assignments_data))
+    write_json_file(temp_git_repo / "roster.json", roster_data)
+    write_json_file(temp_git_repo / "assignments.json", assignments_data)
     commit_all(temp_git_repo, "Initial state for healer stale test")
 
     # Mock datetime
@@ -349,8 +366,8 @@ def test_governor_missing_json_file(temp_git_repo):
             }
         }
     }
-    (temp_git_repo / \"triggers.json\").write_text(json.dumps(triggers_data))
-    commit_all(temp_git_repo, \"Initial state for governor missing json test\")
+    write_json_file(temp_git_repo / "triggers.json", triggers_data)
+    commit_all(temp_git_repo, "Initial state for governor missing json test")
 
     # Run governor main loop once (mocking sleep to prevent infinite loop)
     with patch('renderers.governor.main.time.sleep'):
@@ -359,16 +376,16 @@ def test_governor_missing_json_file(temp_git_repo):
                 governor_main()
 
     # Verify an error was logged and no new commit was made
-    mock_log_error.assert_called_with(\"Failed to read one or more essential JSON files. Skipping this cycle.\")
+    mock_log_error.assert_called_with("Failed to read one or more essential JSON files. Skipping this cycle.")
     assert get_commit_count(temp_git_repo) == 1
 
 def test_healer_missing_json_file(temp_git_repo):
     # Setup: only create roster.json, but not assignments.json
-    roster_data = {\"nodes\": [
-        {\"id\": \"node1\", \"last_seen\": datetime.utcnow().isoformat()}
+    roster_data = {"nodes": [
+        create_node_data("node1", last_seen=BASE_DATETIME)
     ]}
-    (temp_git_repo / \"roster.json\").write_text(json.dumps(roster_data))
-    commit_all(temp_git_repo, \"Initial state for healer missing json test\")
+    write_json_file(temp_git_repo / "roster.json", roster_data)
+    commit_all(temp_git_repo, "Initial state for healer missing json test")
 
     # Run healer main loop once (mocking sleep to prevent infinite loop)
     with patch('renderers.healer.main.time.sleep'):
@@ -377,5 +394,5 @@ def test_healer_missing_json_file(temp_git_repo):
                 healer_main()
 
     # Verify an error was logged and no new commit was made
-    mock_log_error.assert_called_with(\"Failed to read roster.json or assignments.json. Skipping this cycle.\")
+    mock_log_error.assert_called_with("Failed to read roster.json or assignments.json. Skipping this cycle.")
     assert get_commit_count(temp_git_repo) == 1

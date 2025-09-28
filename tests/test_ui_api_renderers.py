@@ -1,19 +1,30 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 import subprocess
 import time
 import requests
 import os
-import json
+from datetime import datetime, timezone
+
+from docker_test_utils import (
+    DASHBOARD_IMAGE, API_IMAGE, AUDIO_IMAGE, VIDEO_IMAGE, WEB_IMAGE, ADMIN_UI_IMAGE,
+    PORT_DASHBOARD, PORT_AUDIO, PORT_VIDEO, PORT_WEB, PORT_API, PORT_ADMIN,
+    get_docker_build_cmd, get_docker_run_cmd, get_docker_stop_cmd, get_docker_rm_cmd,
+    get_docker_ps_cmd, get_standard_volumes, create_mock_docker_responses
+)
+from test_utils import TEST_NODE_ID, create_task
 
 # Import the Node class from node.py
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from node import Node, NodeState
 
 # --- Fixtures ---
 @pytest.fixture
 def mock_node_id_file():
     with (patch('os.path.exists', return_value=False),
-          patch('uuid.uuid4', return_value=MagicMock(hex='test-node-id')),
+          patch('uuid.uuid4', return_value=MagicMock(hex=TEST_NODE_ID)),
           patch('builtins.open', new_callable=mock_open) as mock_file_open):
         yield mock_file_open
 
@@ -31,6 +42,21 @@ def mock_json_file_operations():
           patch('json.dump') as mock_json_dump,
           patch('builtins.open', new_callable=mock_open) as mock_file_open):
         yield mock_read_json, mock_json_dump, mock_file_open
+
+# --- Test Helpers ---
+
+def verify_docker_commands(mock_run_command, node, task_type, image_name, port, container_id):
+    """Helper to verify Docker command calls."""
+    volumes = get_standard_volumes()
+    container_name = f'{task_type}-{node.node_id[:8]}'
+
+    mock_run_command.assert_any_call(get_docker_build_cmd(image_name, f'renderers/{task_type}'))
+    mock_run_command.assert_any_call(
+        get_docker_run_cmd(container_name, image_name, port, volumes)
+    )
+    mock_run_command.assert_any_call(get_docker_ps_cmd(container_id))
+    mock_run_command.assert_any_call(get_docker_stop_cmd(container_id), suppress_errors=True)
+    mock_run_command.assert_any_call(get_docker_rm_cmd(container_id), suppress_errors=True)
 
 # --- Helper to run a renderer in a controlled way ---
 def run_renderer_in_node(node_instance, task_type, port, mock_git_commands, mock_json_file_operations):
@@ -61,10 +87,7 @@ def run_renderer_in_node(node_instance, task_type, port, mock_git_commands, mock
 
     # Verify docker commands were called
     assert mock_run_command.call_count >= 3 # build, run, stop, rm
-    assert any('docker build' in call[0][0] for call in mock_run_command.call_args_list)
-    assert any('docker run' in call[0][0] and f'-p {port}:8000' in call[0][0] for call in mock_run_command.call_args_list)
-    assert any('docker stop' in call[0][0] for call in mock_run_command.call_args_list)
-    assert any('docker rm' in call[0][0] for call in mock_run_command.call_args_list)
+    verify_docker_commands(mock_run_command, node_instance, task_type, DASHBOARD_IMAGE, port, "container_id_123")
 
 # --- Test Cases for UI/API Renderers ---
 
@@ -75,14 +98,7 @@ def test_dashboard_renderer_smoke_test(mock_node_id_file, mock_git_commands, moc
     task_type = "dashboard"
 
     # Mock the actual docker run command to return a dummy container ID
-    mock_git_commands[0].side_effect = [
-        "build_output", # docker build
-        "container_id_dashboard", # docker run -d
-        "container_id_dashboard", # docker ps -q (container is running)
-        "", # docker ps -q (container is running)
-        "", # docker stop
-        ""  # docker rm
-    ]
+    mock_run_command.side_effect = create_mock_docker_responses("container_id_123", running_checks=1)
 
     # Mock read_json_file for assignments during heartbeat
     mock_json_file_operations[0].return_value = {"assignments": {task_type: {"node_id": node.node_id, "task_heartbeat": datetime.now(timezone.utc).isoformat()}}}
@@ -112,14 +128,7 @@ def test_api_renderer_smoke_test(mock_node_id_file, mock_git_commands, mock_json
     task_type = "api"
 
     # Mock the actual docker run command to return a dummy container ID
-    mock_git_commands[0].side_effect = [
-        "build_output", # docker build
-        "container_id_api", # docker run -d
-        "container_id_api", # docker ps -q (container is running)
-        "", # docker ps -q (container is running)
-        "", # docker stop
-        ""  # docker rm
-    ]
+    mock_git_commands[0].side_effect = create_mock_docker_responses("container_id_api")
 
     # Mock read_json_file for assignments during heartbeat
     mock_json_file_operations[0].return_value = {"assignments": {task_type: {"node_id": node.node_id, "task_heartbeat": datetime.now(timezone.utc).isoformat()}}}
@@ -147,14 +156,7 @@ def test_admin_ui_renderer_smoke_test(mock_node_id_file, mock_git_commands, mock
     port = 8005
     task_type = "admin_ui"
 
-    mock_git_commands[0].side_effect = [
-        "build_output", # docker build
-        "container_id_admin_ui", # docker run -d
-        "container_id_admin_ui", # docker ps -q (container is running)
-        "", # docker ps -q (container is running)
-        "", # docker stop
-        ""  # docker rm
-    ]
+    mock_git_commands[0].side_effect = create_mock_docker_responses("container_id_admin_ui")
 
     mock_json_file_operations[0].return_value = {"assignments": {task_type: {"node_id": node.node_id, "task_heartbeat": datetime.now(timezone.utc).isoformat()}}}
 
@@ -178,14 +180,7 @@ def test_audio_renderer_smoke_test(mock_node_id_file, mock_git_commands, mock_js
     port = 8001
     task_type = "audio"
 
-    mock_git_commands[0].side_effect = [
-        "build_output", # docker build
-        "container_id_audio", # docker run -d
-        "container_id_audio", # docker ps -q (container is running)
-        "", # docker ps -q (container is running)
-        "", # docker stop
-        ""  # docker rm
-    ]
+    mock_git_commands[0].side_effect = create_mock_docker_responses("container_id_audio")
 
     mock_json_file_operations[0].return_value = {"assignments": {task_type: {"node_id": node.node_id, "task_heartbeat": datetime.now(timezone.utc).isoformat()}}}
 
@@ -209,14 +204,7 @@ def test_video_renderer_smoke_test(mock_node_id_file, mock_git_commands, mock_js
     port = 8002
     task_type = "video"
 
-    mock_git_commands[0].side_effect = [
-        "build_output", # docker build
-        "container_id_video", # docker run -d
-        "container_id_video", # docker ps -q (container is running)
-        "", # docker ps -q (container is running)
-        "", # docker stop
-        ""  # docker rm
-    ]
+    mock_git_commands[0].side_effect = create_mock_docker_responses("container_id_video")
 
     mock_json_file_operations[0].return_value = {"assignments": {task_type: {"node_id": node.node_id, "task_heartbeat": datetime.now(timezone.utc).isoformat()}}}
 
@@ -240,14 +228,7 @@ def test_web_renderer_smoke_test(mock_node_id_file, mock_git_commands, mock_json
     port = 8003
     task_type = "web"
 
-    mock_git_commands[0].side_effect = [
-        "build_output", # docker build
-        "container_id_web", # docker run -d
-        "container_id_web", # docker ps -q (container is running)
-        "", # docker ps -q (container is running)
-        "", # docker stop
-        ""  # docker rm
-    ]
+    mock_git_commands[0].side_effect = create_mock_docker_responses("container_id_web")
 
     mock_json_file_operations[0].return_value = {"assignments": {task_type: {"node_id": node.node_id, "task_heartbeat": datetime.now(timezone.utc).isoformat()}}}
 
@@ -272,11 +253,11 @@ def test_docker_build_failure(mock_node_id_file, mock_git_commands, mock_json_fi
     mock_run_command, _, _, _ = mock_git_commands
 
     node = Node()
-    node.current_task = {\"id\": \"task1\", \"type\": \"dashboard\", \"priority\": 1}
+    node.current_task = create_task("task1", "dashboard", priority=1)
     node.state = NodeState.ACTIVE
 
     # Simulate docker build failure
-    mock_run_command.side_effect = subprocess.CalledProcessError(1, \"docker build\", stderr=\"Error building image\")
+    mock_run_command.side_effect = subprocess.CalledProcessError(1, "docker build", stderr="Error building image")
 
     with patch('node.time.sleep'): # Mock sleep to speed up test
         node.run_active_state()
@@ -285,20 +266,20 @@ def test_docker_build_failure(mock_node_id_file, mock_git_commands, mock_json_fi
     # And that the state transitioned back to IDLE
     assert node.state == NodeState.IDLE
     assert node.current_task is None
-    mock_run_command.assert_called_once_with([\'docker\', \'build\', \'-t\', \'shortlist-dashboard-renderer\', \'renderers/dashboard\'])
+    mock_run_command.assert_called_once_with(get_docker_build_cmd(DASHBOARD_IMAGE, 'renderers/dashboard'))
 
 @pytest.mark.slow
 def test_docker_run_failure(mock_node_id_file, mock_git_commands, mock_json_file_operations):
     mock_run_command, _, _, _ = mock_git_commands
 
     node = Node()
-    node.current_task = {\"id\": \"task1\", \"type\": \"dashboard\", \"priority\": 1}
+    node.current_task = create_task("task1", "dashboard", priority=1)
     node.state = NodeState.ACTIVE
 
     # Simulate docker run failure after successful build
     mock_run_command.side_effect = [
-        \"build_output\", # docker build success
-        subprocess.CalledProcessError(1, \"docker run\", stderr=\"Error running container\") # docker run failure
+        "build_output", # docker build success
+        subprocess.CalledProcessError(1, "docker run", stderr="Error running container") # docker run failure
     ]
 
     with patch('node.time.sleep'): # Mock sleep to speed up test
@@ -308,5 +289,6 @@ def test_docker_run_failure(mock_node_id_file, mock_git_commands, mock_json_file
     # And that the state transitioned back to IDLE
     assert node.state == NodeState.IDLE
     assert node.current_task is None
-    mock_run_command.assert_any_call([\'docker\', \'build\', \'-t\', \'shortlist-dashboard-renderer\', \'renderers/dashboard\'])
-    mock_run_command.assert_any_call([\'docker\', \'run\', \'-d\', \'--name\', f\'task1-{node.node_id[:8]}\', \'-v\', f\'{os.path.abspath(\"shortlist.json\")}:/app/data/shortlist.json:ro\', \'-v\', f\'{os.path.abspath(\"./output\")}:/app/output\', \'-p\', \'8000:8000\', \'shortlist-dashboard-renderer\'])
+    mock_run_command.assert_any_call(get_docker_build_cmd(DASHBOARD_IMAGE, 'renderers/dashboard'))
+    volumes = get_standard_volumes()
+    mock_run_command.assert_any_call(get_docker_run_cmd(f'task1-{node.node_id[:8]}', DASHBOARD_IMAGE, PORT_DASHBOARD, volumes))

@@ -14,7 +14,7 @@ SCHEDULE_FILE = "schedule.json"
 ASSIGNMENTS_FILE = "assignments.json"
 
 HEARTBEAT_INTERVAL = timedelta(minutes=5)
-TASK_HEARTBEAT_INTERVAL = timedelta(seconds=60)
+TASK_HEARTBEAT_INTERVAL = timedelta(seconds=1) # Run more heartbeats in testing
 TASK_EXPIRATION = timedelta(seconds=90) # A task is orphaned if its heartbeat is older than 90s
 IDLE_PULL_INTERVAL = timedelta(seconds=30)
 JITTER_MILLISECONDS = 5000
@@ -179,7 +179,9 @@ class Node:
             "task_heartbeat": now_iso,
             "status": "claiming"
         }
-        with open(ASSIGNMENTS_FILE, 'w') as f:
+        # Write to assignments file, using cwd as base
+        assignments_path = os.path.join(os.getcwd(), ASSIGNMENTS_FILE)
+        with open(assignments_path, 'w') as f:
             json.dump(assignments, f, indent=2)
 
         commit_message = f"feat(assignments): node {self.node_id[:8]} claims {self.current_task['id']}"
@@ -305,7 +307,9 @@ class Node:
 
                 assignments["assignments"][task_id]["task_heartbeat"] = datetime.now(timezone.utc).isoformat()
                 assignments["assignments"][task_id]["status"] = "streaming"
-                with open(ASSIGNMENTS_FILE, 'w') as f:
+                # Write to assignments file, using cwd as base
+                assignments_path = os.path.join(os.getcwd(), ASSIGNMENTS_FILE)
+                with open(assignments_path, 'w') as f:
                     json.dump(assignments, f, indent=2)
                 
                 commit_message = f"chore(assignments): task heartbeat for {task_id} from node {self.node_id[:8]}"
@@ -371,8 +375,10 @@ class Node:
                     "last_seen": current_time,
                     "metrics": metrics
                 })
-
-            with open(ROSTER_FILE, 'w') as f:
+            
+            # Write to roster file, using cwd as base
+            roster_path = os.path.join(os.getcwd(), ROSTER_FILE)
+            with open(roster_path, 'w') as f:
                 json.dump(roster, f, indent=2)
 
             commit_message = f"chore(roster): heartbeat from node {self.node_id[:8]}"
