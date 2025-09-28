@@ -41,13 +41,15 @@ def temp_e2e_repo(tmp_path):
 
 # --- Test Case for E2E Lifecycle ---
 
-def test_e2e_claim_and_run_cycle(temp_e2e_repo):
-    # Setup: Create a schedule with one task
+def test_e2e_claim_and_run_multiple_tasks_cycle(temp_e2e_repo):
+    # Setup: Create a schedule with multiple tasks
     schedule_data = {"tasks": [
-        {"id": "e2e_test_task", "type": "dashboard", "priority": 1}
+        {"id": "e2e_task_1", "type": "dashboard", "priority": 1},
+        {"id": "e2e_task_2", "type": "audio", "priority": 2},
+        {"id": "e2e_task_3", "type": "web", "priority": 3}
     ]}
     (temp_e2e_repo / SCHEDULE_FILE).write_text(json.dumps(schedule_data))
-    commit_all(temp_e2e_repo, "Add e2e test task to schedule")
+    commit_all(temp_e2e_repo, "Add multiple e2e test tasks to schedule")
 
     # Mock external dependencies for the Node
     with patch('node.run_command') as mock_run_command,
@@ -111,21 +113,22 @@ def test_e2e_claim_and_run_cycle(temp_e2e_repo):
         mock_json_dump.side_effect = mock_json_dump_impl
 
         # Mock Docker container operations (start/stop/is_running)
-        # Simulate a container that starts and stays running
+        # Simulate containers that start and stay running
         mock_run_command.side_effect = [
             "build_output", # docker build
-            "container_id_e2e", # docker run -d
-            "container_id_e2e", # docker ps -q (first check, container is running)
-            "container_id_e2e", # docker ps -q (second check, container is running)
+            "container_id_e2e_1", # docker run -d for task 1
+            "container_id_e2e_1", # docker ps -q (container 1 is running)
+            "build_output", # docker build
+            "container_id_e2e_2", # docker run -d for task 2
+            "container_id_e2e_2", # docker ps -q (container 2 is running)
+            "build_output", # docker build
+            "container_id_e2e_3", # docker run -d for task 3
+            "container_id_e2e_3", # docker ps -q (container 3 is running)
             "", # docker stop
             ""  # docker rm
-        ] * 10 # Repeat to allow multiple heartbeats
+        ] * 5 # Repeat to allow multiple heartbeats and cycles
 
         # Instantiate the Node, configured to use the temporary repo
-        # We need to ensure the Node's internal GIT_REPO_PATH is set correctly
-        # This is tricky as GIT_REPO_PATH is a global in node.py
-        # For this E2E, we'll assume the test runner's CWD is temp_e2e_repo
-        # Or, we can patch os.getcwd
         with patch('os.getcwd', return_value=str(temp_e2e_repo)):
             node = Node()
             node.node_id = "e2e-test-node"
@@ -134,19 +137,24 @@ def test_e2e_claim_and_run_cycle(temp_e2e_repo):
             # Run the node's main loop in a separate thread
             stop_event = threading.Event()
             def run_node_target():
-                while not stop_event.is_set():
+                # We need to ensure the node runs enough cycles to claim all tasks
+                # and perform a few heartbeats for each
+                for _ in range(10): # Run for a fixed number of cycles
+                    if stop_event.is_set():
+                        break
                     try:
                         node.run()
                     except Exception as e:
                         print(f"Node thread error: {e}")
                         break
+                    time.sleep(0.1) # Small sleep to allow other mocks to work
             
             node_thread = threading.Thread(target=run_node_target)
             node_thread.daemon = True # Allow main program to exit even if thread is still running
             node_thread.start()
 
             # Let the node run for a limited time
-            time.sleep(10) # Allow enough time for multiple cycles
+            time.sleep(5) # Allow enough time for multiple cycles and claims
             stop_event.set()
             node_thread.join(timeout=5) # Wait for thread to finish, with a timeout
 
@@ -157,12 +165,15 @@ def test_e2e_claim_and_run_cycle(temp_e2e_repo):
             # Check for node registration commit
             assert any(f"chore(roster): heartbeat from node {node.node_id[:8]}" in msg for msg in commit_messages)
 
-            # Check for task claim commit
-            assert any(f"feat(assignments): node {node.node_id[:8]} claims e2e_test_task" in msg for msg in commit_messages)
+            # Check for task claim commits for all tasks
+            for task_id in ["e2e_task_1", "e2e_task_2", "e2e_task_3"]:
+                assert any(f"feat(assignments): node {node.node_id[:8]} claims {task_id}" in msg for msg in commit_messages)
 
-            # Check for at least one task heartbeat commit
-            assert any(f"chore(assignments): task heartbeat for e2e_test_task from node {node.node_id[:8]}" in msg for msg in commit_messages)
+            # Check for at least one task heartbeat commit for each task
+            for task_id in ["e2e_task_1", "e2e_task_2", "e2e_task_3"]:
+                assert any(f"chore(assignments): task heartbeat for {task_id} from node {node.node_id[:8]}" in msg for msg in commit_messages)
 
-            # Verify final state of assignments.json (task should be assigned to this node)
+            # Verify final state of assignments.json (all tasks should be assigned to this node)
             final_assignments = json.loads((temp_e2e_repo / ASSIGNMENTS_FILE).read_text())
-            assert final_assignments["tasks"]["e2e_test_task"]["node_id"] == node.node_id
+            for task_id in ["e2e_task_1", "e2e_task_2", "e2e_task_3"]:
+                assert final_assignments["tasks"][task_id]["node_id"] == node.node_id
