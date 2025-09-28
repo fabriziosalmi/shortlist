@@ -7,10 +7,10 @@
       "status": "streaming"
     },
     "self_hosted_audio_stream": {
-      "node_id": "00b31c49-01d6-4303-b437-82d9c2b882d8",
-      "claimed_at": "2025-09-28T09:48:39.797228+00:00",
-      "task_heartbeat": "2025-09-28T09:50:15.084957+00:00",
-      "status": "streaming"
+      "node_id": "c4f78d5d-bdad-4a44-b30e-93d99bcc6135",
+      "claimed_at": "2025-09-28T09:51:46.701710+00:00",
+      "task_heartbeat": "2025-09-28T09:51:46.701710+00:00",
+      "status": "claiming"
     },
     "youtube_video_stream": {
       "node_id": "2b861fa5-36eb-46f6-a460-c62186a9bd05",
