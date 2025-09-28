@@ -31,9 +31,9 @@
       "status": "streaming"
     },
     "shortlist_web": {
-      "node_id": "ba8d0707-8d46-400a-9f38-d5b42749fc65",
-      "claimed_at": "2025-09-28T15:40:23.841343+00:00",
-      "task_heartbeat": "2025-09-28T15:40:23.841343+00:00",
+      "node_id": "0992d5a9-c7b7-4fff-aa50-316d1d4e0f50",
+      "claimed_at": "2025-09-28T16:08:45.333880+00:00",
+      "task_heartbeat": "2025-09-28T16:08:45.333880+00:00",
       "status": "claiming"
     },
     "shortlist_governance_api": {
