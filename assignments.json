@@ -13,10 +13,10 @@
       "status": "claiming"
     },
     "shortlist_admin_ui": {
-      "node_id": "0dbf2d96-3715-4a41-9d57-92373471f9df",
-      "claimed_at": "2025-09-28T12:19:43.193184+00:00",
-      "task_heartbeat": "2025-09-28T12:35:07.493835+00:00",
-      "status": "streaming"
+      "node_id": "b4b665d7-c533-4cc4-9b9c-949282c88429",
+      "claimed_at": "2025-09-28T12:36:52.560746+00:00",
+      "task_heartbeat": "2025-09-28T12:36:52.560746+00:00",
+      "status": "claiming"
     }
   }
 }
