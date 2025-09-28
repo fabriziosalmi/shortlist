@@ -3,8 +3,8 @@
     "self_hosted_audio_stream": {
       "node_id": "eab8f570-b9ac-4fed-9db8-5ccaf51fffa8",
       "claimed_at": "2025-09-28T09:23:12.061845+00:00",
-      "task_heartbeat": "2025-09-28T09:23:12.061845+00:00",
-      "status": "claiming"
+      "task_heartbeat": "2025-09-28T09:23:15.128256+00:00",
+      "status": "streaming"
     }
   }
 }
