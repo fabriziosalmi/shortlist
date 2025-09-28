@@ -3,8 +3,8 @@
     "swarm_status_dashboard": {
       "node_id": "58fa609a-25a4-4d7a-826b-cadaa7df1662",
       "claimed_at": "2025-09-28T09:33:24.794832+00:00",
-      "task_heartbeat": "2025-09-28T09:33:24.794832+00:00",
-      "status": "claiming"
+      "task_heartbeat": "2025-09-28T09:33:28.297479+00:00",
+      "status": "streaming"
     },
     "youtube_video_stream": {
       "node_id": "7ce81110-18c9-44e9-bea6-db574a1ed27b",
