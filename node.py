@@ -249,12 +249,21 @@ class Node:
                     '-v', f'{os.path.abspath(".")}:/app/data',
                 ]
 
+            # Prepare environment variables for API container
+            env_vars = []
+            if task_type == 'api':
+                # Pass governance API environment variables if available
+                for env_var in ['GIT_AUTH_TOKEN', 'GITHUB_REPO', 'MAINTAINER_API_TOKEN', 'CONTRIBUTOR_API_TOKEN']:
+                    value = os.getenv(env_var)
+                    if value:
+                        env_vars.extend(['-e', f'{env_var}={value}'])
+
             # Start the renderer container
             print(f"    - Starting container from image: {image_name}...")
             container_id = run_command([
-                'docker', 'run', '-d', 
+                'docker', 'run', '-d',
                 '--name', f'{task_id}-{self.node_id[:8]}', # Unique name for container
-            ] + volumes + port_mapping + [image_name])
+            ] + volumes + port_mapping + env_vars + [image_name])
             print(f"    - Container {container_id[:12]} started.")
             print(f"    - Docker run output: {container_id}")
 

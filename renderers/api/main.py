@@ -158,7 +158,14 @@ class GitManager:
             logger.error(f"Failed to approve/merge PR: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to approve/merge PR: {str(e)}")
 
-git_manager = GitManager()
+# Initialize Git manager
+git_manager = None
+try:
+    git_manager = GitManager()
+    logger.info("GitHub integration initialized successfully")
+except Exception as e:
+    logger.warning(f"GitHub integration not available: {e}")
+    logger.info("API will run in limited mode - status endpoints available")
 
 @app.get("/health")
 async def health_check():
