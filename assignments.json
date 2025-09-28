@@ -3,8 +3,8 @@
     "shortlist_api": {
       "node_id": "93ab3576-2f2c-4ca6-b56c-8dc2750b4379",
       "claimed_at": "2025-09-28T10:29:52.357963+00:00",
-      "task_heartbeat": "2025-09-28T10:29:52.357963+00:00",
-      "status": "claiming"
+      "task_heartbeat": "2025-09-28T10:29:56.018693+00:00",
+      "status": "streaming"
     }
   }
 }
