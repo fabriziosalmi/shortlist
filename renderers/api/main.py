@@ -2,19 +2,40 @@ import os
 import json
 import subprocess
 import uuid
-import logging
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, Request
+from fastapi.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 from github import Github
 import tempfile
 import shutil
 
+from utils.logging_config import configure_logging
+from utils.logging_utils import (
+    ComponentLogger,
+    RENDERER_CONTEXT,
+    log_operation,
+    log_execution_time
+)
+
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+configure_logging('api_renderer', log_level="INFO", log_file='/app/data/api.log')
+logger = ComponentLogger('api_renderer')
+logger.logger.add_context(**RENDERER_CONTEXT, renderer_type='api')
+
+# Custom middleware for request logging
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        with log_operation(logger.logger, "http_request",
+                          path=request.url.path,
+                          method=request.method,
+                          remote_addr=request.client.host if request.client else None):
+            response = await call_next(request)
+            logger.logger.info("Request completed",
+                              status_code=response.status_code)
+            return response
 
 # Environment variables
 MAINTAINER_API_TOKEN = os.getenv("MAINTAINER_API_TOKEN")
@@ -23,6 +44,9 @@ GIT_AUTH_TOKEN = os.getenv("GIT_AUTH_TOKEN")
 GITHUB_REPO = os.getenv("GITHUB_REPO", "owner/repo")  # Format: "owner/repo"
 
 app = FastAPI(title="Shortlist Governance API", version="1.0.0")
+
+# Add request logging middleware
+app.add_middleware(RequestLoggingMiddleware)
 
 # Request models
 class ShortlistUpdate(BaseModel):
@@ -33,31 +57,63 @@ class ShortlistProposal(BaseModel):
     description: str = "Proposed shortlist update"
 
 # Authentication dependencies
-def verify_maintainer_token(authorization: str = Header(...)):
-    if not MAINTAINER_API_TOKEN:
-        raise HTTPException(status_code=503, detail="Maintainer authentication not configured")
+@log_execution_time(logger.logger)
+def verify_maintainer_token(authorization: str = Header(...)) -> str:
+    """Verify maintainer authentication token.
+    
+    Args:
+        authorization: Authorization header value
+        
+    Returns:
+        Verified token
+        
+    Raises:
+        HTTPException: If token is invalid or authentication is not configured
+    """
+    with log_operation(logger.logger, "verify_maintainer_token"):
+        if not MAINTAINER_API_TOKEN:
+            logger.logger.error("Maintainer authentication not configured")
+            raise HTTPException(status_code=503, detail="Maintainer authentication not configured")
 
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Invalid authorization header format")
+        if not authorization.startswith("Bearer "):
+            logger.logger.warning("Invalid auth header format", auth_header=authorization)
+            raise HTTPException(status_code=401, detail="Invalid authorization header format")
 
-    token = authorization.replace("Bearer ", "")
-    if token != MAINTAINER_API_TOKEN:
-        raise HTTPException(status_code=401, detail="Invalid maintainer token")
+        token = authorization.replace("Bearer ", "")
+        if token != MAINTAINER_API_TOKEN:
+            logger.logger.warning("Invalid maintainer token")
+            raise HTTPException(status_code=401, detail="Invalid maintainer token")
 
-    return token
+        return token
 
-def verify_contributor_token(authorization: str = Header(...)):
-    if not CONTRIBUTOR_API_TOKEN:
-        raise HTTPException(status_code=503, detail="Contributor authentication not configured")
+@log_execution_time(logger.logger)
+def verify_contributor_token(authorization: str = Header(...)) -> str:
+    """Verify contributor authentication token.
+    
+    Args:
+        authorization: Authorization header value
+        
+    Returns:
+        Verified token
+        
+    Raises:
+        HTTPException: If token is invalid or authentication is not configured
+    """
+    with log_operation(logger.logger, "verify_contributor_token"):
+        if not CONTRIBUTOR_API_TOKEN:
+            logger.logger.error("Contributor authentication not configured")
+            raise HTTPException(status_code=503, detail="Contributor authentication not configured")
 
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Invalid authorization header format")
+        if not authorization.startswith("Bearer "):
+            logger.logger.warning("Invalid auth header format", auth_header=authorization)
+            raise HTTPException(status_code=401, detail="Invalid authorization header format")
 
-    token = authorization.replace("Bearer ", "")
-    if token != CONTRIBUTOR_API_TOKEN:
-        raise HTTPException(status_code=401, detail="Invalid contributor token")
+        token = authorization.replace("Bearer ", "")
+        if token != CONTRIBUTOR_API_TOKEN:
+            logger.logger.warning("Invalid contributor token")
+            raise HTTPException(status_code=401, detail="Invalid contributor token")
 
-    return token
+        return token
 
 # Git operations helper
 class GitManager:
@@ -91,7 +147,9 @@ class GitManager:
 
             return repo_path
         except subprocess.CalledProcessError as e:
-            logger.error(f"Git clone failed: {e.stderr}")
+            logger.logger.error("Git clone failed",
+                              error=e.stderr,
+                              repo_url=self.repo_url.replace(GIT_AUTH_TOKEN, '***'))
             raise HTTPException(status_code=500, detail=f"Failed to clone repository: {e.stderr}")
 
     def create_branch_and_commit(self, repo_path: str, branch_name: str,
@@ -123,7 +181,9 @@ class GitManager:
             ], cwd=repo_path, check=True)
 
         except subprocess.CalledProcessError as e:
-            logger.error(f"Git operations failed: {e.stderr}")
+            logger.logger.error("Git operations failed",
+                              error=e.stderr,
+                              branch_name=branch_name)
             raise HTTPException(status_code=500, detail=f"Git operations failed: {e.stderr}")
 
     def create_pull_request(self, branch_name: str, title: str, body: str):
@@ -137,7 +197,9 @@ class GitManager:
             )
             return pr
         except Exception as e:
-            logger.error(f"Failed to create PR: {str(e)}")
+            logger.logger.error("Failed to create PR",
+                              error=str(e),
+                              branch_name=branch_name)
             raise HTTPException(status_code=500, detail=f"Failed to create pull request: {str(e)}")
 
     def approve_and_merge_pr(self, pr):
@@ -155,22 +217,27 @@ class GitManager:
 
             return merge_result
         except Exception as e:
-            logger.error(f"Failed to approve/merge PR: {str(e)}")
+            logger.logger.error("Failed to approve/merge PR",
+                              error=str(e),
+                              pr_number=pr.number)
             raise HTTPException(status_code=500, detail=f"Failed to approve/merge PR: {str(e)}")
 
 # Initialize Git manager
 git_manager = None
 try:
     git_manager = GitManager()
-    logger.info("GitHub integration initialized successfully")
+    logger.logger.info("GitHub integration initialized successfully",
+                        repo=GITHUB_REPO)
 except Exception as e:
-    logger.warning(f"GitHub integration not available: {e}")
-    logger.info("API will run in limited mode - status endpoints available")
+    logger.logger.warning("GitHub integration not available",
+                           error=str(e))
+    logger.logger.info("API running in limited mode - status endpoints only")
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {
+    with log_operation(logger.logger, "health_check"):
+        return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "service": "shortlist-governance-api"
@@ -185,7 +252,8 @@ async def update_shortlist_admin(
     Maintainer endpoint: Update shortlist with immediate merge
     Requires MAINTAINER_API_TOKEN
     """
-    logger.info(f"Admin shortlist update requested with {len(update.items)} items")
+    logger.logger.info("Admin shortlist update requested",
+                       items_count=len(update.items))
 
     # Create temporary directory for git operations
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -234,7 +302,9 @@ async def update_shortlist_admin(
             }
 
         except Exception as e:
-            logger.error(f"Admin update failed: {str(e)}")
+            logger.logger.error("Admin update failed",
+                              error=str(e),
+                              error_type=type(e).__name__)
             raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/v1/proposals/shortlist")
@@ -246,7 +316,9 @@ async def propose_shortlist_update(
     Contributor endpoint: Propose shortlist changes via Pull Request
     Requires CONTRIBUTOR_API_TOKEN
     """
-    logger.info(f"Shortlist proposal requested with {len(proposal.items)} items")
+    logger.logger.info("Shortlist proposal requested",
+                       items_count=len(proposal.items),
+                       description=proposal.description)
 
     # Create temporary directory for git operations
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -297,13 +369,17 @@ This proposal requires review and approval by a maintainer before merging.
             }
 
         except Exception as e:
-            logger.error(f"Proposal creation failed: {str(e)}")
+            logger.logger.error("Proposal creation failed",
+                              error=str(e),
+                              error_type=type(e).__name__,
+                              proposal_id=proposal_id)
             raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/v1/status")
 async def get_system_status():
     """Get current system configuration status"""
-    return {
+    with log_operation(logger.logger, "get_system_status"):
+        return {
         "maintainer_auth_configured": bool(MAINTAINER_API_TOKEN),
         "contributor_auth_configured": bool(CONTRIBUTOR_API_TOKEN),
         "git_auth_configured": bool(GIT_AUTH_TOKEN),
@@ -313,4 +389,10 @@ async def get_system_status():
 
 if __name__ == "__main__":
     import uvicorn
+    logger.log_startup(
+        service="Shortlist Governance API",
+        host="0.0.0.0",
+        port=8000
+    )
     uvicorn.run(app, host="0.0.0.0", port=8000)
+    logger.log_shutdown()

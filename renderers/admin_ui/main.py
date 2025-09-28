@@ -1,13 +1,22 @@
 import os
 import json
-import logging
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from typing import Any, Dict, List, Optional
 from flask import Flask, render_template, request, jsonify
 
+from utils.logging_config import configure_logging
+from utils.logging_utils import (
+    ComponentLogger,
+    RENDERER_CONTEXT,
+    log_operation,
+    log_execution_time
+)
+
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+configure_logging('admin_ui_renderer', log_level="INFO", log_file='/app/data/admin_ui.log')
+logger = ComponentLogger('admin_ui_renderer')
+logger.logger.add_context(**RENDERER_CONTEXT, renderer_type='admin_ui')
 
 app = Flask(__name__)
 
@@ -18,43 +27,74 @@ SHORTLIST_FILE = "/app/data/shortlist.json"
 ROSTER_FILE = "/app/data/roster.json"
 ASSIGNMENTS_FILE = "/app/data/assignments.json"
 
-def read_json_file(filepath):
-    """Read JSON file with error handling"""
+@log_execution_time(logger.logger)
+def read_json_file(filepath: str) -> Dict[str, Any]:
+    """Read JSON file with error handling
+    
+    Args:
+        filepath: Path to the JSON file to read
+        
+    Returns:
+        Dict containing the file contents or empty dict on error
+    """
     try:
         with open(filepath, 'r') as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        logger.warning(f"Could not read {filepath}: {e}")
+        logger.logger.warning("Failed to read JSON file",
+                            error=str(e),
+                            error_type=type(e).__name__,
+                            filepath=filepath)
         return {}
 
-def parse_items_from_text(text):
-    """Parse shortlist items from textarea input"""
-    try:
-        # Try to parse as JSON first
-        data = json.loads(text)
-        if isinstance(data, dict) and "items" in data:
-            return data["items"]
-        elif isinstance(data, list):
-            return data
-        else:
-            return [str(data)]
-    except json.JSONDecodeError:
-        # Fallback: treat as line-separated text
-        lines = [line.strip() for line in text.split('\n') if line.strip()]
-        return lines
+@log_execution_time(logger.logger)
+def parse_items_from_text(text: str) -> List[str]:
+    """Parse shortlist items from textarea input
+    
+    Args:
+        text: Content to parse, either JSON or line-separated text
+        
+    Returns:
+        List of parsed items
+    """
+    with log_operation(logger.logger, "parse_content", content_length=len(text)):
+        try:
+            # Try to parse as JSON first
+            data = json.loads(text)
+            if isinstance(data, dict) and "items" in data:
+                items = data["items"]
+                logger.logger.info("Parsed JSON object format", items_count=len(items))
+                return items
+            elif isinstance(data, list):
+                logger.logger.info("Parsed JSON array format", items_count=len(data))
+                return data
+            else:
+                logger.logger.info("Parsed single JSON value")
+                return [str(data)]
+        except json.JSONDecodeError:
+            # Fallback: treat as line-separated text
+            lines = [line.strip() for line in text.split('\n') if line.strip()]
+            logger.logger.info("Parsed line-separated format", lines_count=len(lines))
+            return lines
 
 @app.route("/")
 def index():
     """Serve the main HTML interface"""
-    return render_template("index.html")
+    with log_operation(logger.logger, "serve_index",
+                      path=request.path,
+                      remote_addr=request.remote_addr):
+        return render_template("index.html")
 
 @app.route("/api/swarm-status")
 def get_swarm_status():
     """Get comprehensive swarm status from local files"""
-    try:
-        roster = read_json_file(ROSTER_FILE)
-        assignments = read_json_file(ASSIGNMENTS_FILE)
-        shortlist = read_json_file(SHORTLIST_FILE)
+    with log_operation(logger.logger, "get_swarm_status",
+                      path=request.path,
+                      remote_addr=request.remote_addr):
+        try:
+            roster = read_json_file(ROSTER_FILE)
+            assignments = read_json_file(ASSIGNMENTS_FILE)
+            shortlist = read_json_file(SHORTLIST_FILE)
 
         # Process roster data
         nodes = []
@@ -75,7 +115,9 @@ def get_swarm_status():
                     "time_since_last_seen": f"{int(time_diff)}s ago"
                 })
             except Exception as e:
-                logger.warning(f"Error processing node {node.get('id', 'unknown')}: {e}")
+                logger.logger.warning("Error processing node",
+                                       node_id=node.get('id', 'unknown'),
+                                       error=str(e))
 
         # Process assignments data
         tasks = []
@@ -96,7 +138,9 @@ def get_swarm_status():
                     "time_since_heartbeat": f"{int(time_diff)}s ago"
                 })
             except Exception as e:
-                logger.warning(f"Error processing task {task_id}: {e}")
+                logger.logger.warning("Error processing task",
+                                       task_id=task_id,
+                                       error=str(e))
 
         return jsonify({
             "nodes": nodes,
@@ -112,26 +156,36 @@ def get_swarm_status():
         })
 
     except Exception as e:
-        logger.error(f"Error getting swarm status: {e}")
+        logger.logger.error("Failed to get swarm status",
+                          error=str(e),
+                          error_type=type(e).__name__)
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/shortlist-content")
 def get_shortlist_content():
     """Get current shortlist content for editing"""
-    try:
-        shortlist = read_json_file(SHORTLIST_FILE)
+    with log_operation(logger.logger, "get_shortlist_content",
+                      path=request.path,
+                      remote_addr=request.remote_addr):
+        try:
+            shortlist = read_json_file(SHORTLIST_FILE)
         return jsonify({
             "content": json.dumps(shortlist, indent=2),
             "items": shortlist.get("items", [])
         })
     except Exception as e:
-        logger.error(f"Error getting shortlist content: {e}")
+        logger.logger.error("Failed to get shortlist content",
+                            error=str(e),
+                            error_type=type(e).__name__)
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/governance-status")
 def get_governance_status():
     """Check if governance API is available"""
-    try:
+    with log_operation(logger.logger, "check_governance_status",
+                      path=request.path,
+                      remote_addr=request.remote_addr):
+        try:
         # Read assignments to get the actual container name
         assignments = read_json_file(ASSIGNMENTS_FILE) or {"assignments": {}}
         governance_assignment = assignments["assignments"].get("shortlist_governance_api")
@@ -211,7 +265,11 @@ def get_governance_status():
 @app.route("/ui/propose", methods=["POST"])
 def propose_change():
     """Proxy for contributor proposal endpoint"""
-    try:
+    with log_operation(logger.logger, "propose_change",
+                      path=request.path,
+                      method=request.method,
+                      remote_addr=request.remote_addr):
+        try:
         data = request.json
         token = data.get("token")
         content_text = data.get("content", "")
@@ -262,13 +320,19 @@ def propose_change():
                 error_detail = e.response.text
         return jsonify({"error": error_detail}), 503
     except Exception as e:
-        logger.error(f"Error in propose_change: {e}")
+        logger.logger.error("Failed to propose change",
+                            error=str(e),
+                            error_type=type(e).__name__)
         return jsonify({"error": str(e)}), 500
 
 @app.route("/ui/apply", methods=["POST"])
 def apply_change():
     """Proxy for maintainer direct application endpoint"""
-    try:
+    with log_operation(logger.logger, "apply_change",
+                      path=request.path,
+                      method=request.method,
+                      remote_addr=request.remote_addr):
+        try:
         data = request.json
         token = data.get("token")
         content_text = data.get("content", "")
@@ -315,19 +379,29 @@ def apply_change():
                 error_detail = e.response.text
         return jsonify({"error": error_detail}), 503
     except Exception as e:
-        logger.error(f"Error in apply_change: {e}")
+        logger.logger.error("Failed to apply change",
+                            error=str(e),
+                            error_type=type(e).__name__)
         return jsonify({"error": str(e)}), 500
 
 @app.route("/health")
 def health_check():
     """Health check endpoint"""
-    return jsonify({
+    with log_operation(logger.logger, "health_check",
+                      path=request.path,
+                      remote_addr=request.remote_addr):
+        return jsonify({
         "status": "healthy",
         "timestamp": datetime.utcnow().replace(tzinfo=timezone.utc).isoformat(),
         "service": "shortlist-admin-ui"
     })
 
 if __name__ == "__main__":
-    logger.info("Starting Shortlist Control Room...")
-    logger.info(f"Governance API URL: {API_URL}")
+    logger.log_startup(
+        service="Shortlist Control Room",
+        api_url=API_URL,
+        host="0.0.0.0",
+        port=8000
+    )
     app.run(host="0.0.0.0", port=8000, debug=False)
+    logger.log_shutdown()

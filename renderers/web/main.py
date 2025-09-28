@@ -1,30 +1,68 @@
-from flask import Flask, Response
+from flask import Flask, Response, request
 import json
-import logging
+from typing import Dict, Any, Optional
 
-logging.basicConfig(filename='/app/data/web.log', level=logging.INFO)
+from utils.logging_config import configure_logging
+from utils.logging_utils import (
+    ComponentLogger,
+    RENDERER_CONTEXT,
+    log_operation,
+    log_execution_time
+)
+
+# Configure logging
+configure_logging('web_renderer', log_level="INFO", log_file='/app/data/web.log')
+
+# Initialize logger
+logger = ComponentLogger('web_renderer')
+logger.logger.add_context(**RENDERER_CONTEXT, renderer_type='web')
 
 app = Flask(__name__)
 
 SHORTLIST_FILE = '/app/data/shortlist.json'
 
-def read_shortlist(filepath):
+@log_execution_time(logger.logger)
+def read_shortlist(filepath: str) -> Dict[str, Any]:
+    """Read and parse the shortlist JSON file.
+    
+    Args:
+        filepath: Path to the shortlist JSON file
+        
+    Returns:
+        Dict containing the shortlist data, or empty dict on error
+    """
     try:
         with open(filepath, 'r') as f:
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        logging.error("Could not read shortlist.json")
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logger.logger.error("Failed to read shortlist",
+                          error=str(e),
+                          error_type=type(e).__name__,
+                          filepath=filepath)
         return {}
 
 @app.route('/')
-def index():
-    logging.info("Web request received")
-    shortlist_data = read_shortlist(SHORTLIST_FILE)
-    items = shortlist_data.get('items', [])
-    html = f"<h1>Shortlist</h1><ul>{''.join([f'<li>{item}</li>' for item in items])}</ul>"
-    return Response(html, mimetype='text/html')
+def index() -> Response:
+    """Handle web requests for the shortlist page.
+    
+    Returns:
+        Flask Response with HTML content
+    """
+    with log_operation(logger.logger, "handle_request",
+                      path=request.path,
+                      method=request.method,
+                      remote_addr=request.remote_addr):
+        shortlist_data = read_shortlist(SHORTLIST_FILE)
+        items = shortlist_data.get('items', [])
+        
+        logger.logger.info("Rendering shortlist",
+                          items_count=len(items))
+        
+        html = f"<h1>Shortlist</h1><ul>{''.join([f'<li>{item}</li>' for item in items])}</ul>"
+        return Response(html, mimetype='text/html')
 
 if __name__ == '__main__':
-    logging.info("[WebRenderer] ✅ Avviato.")
+    logger.log_startup(host='0.0.0.0', port=8000)
     app.run(host='0.0.0.0', port=8000)
+    logger.log_shutdown()
 

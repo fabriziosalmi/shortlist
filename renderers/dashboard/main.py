@@ -1,7 +1,21 @@
-from flask import Flask, jsonify, Response
+from flask import Flask, jsonify, Response, request
 import json
 import os
 from datetime import datetime, timezone
+from typing import Dict, Any, Optional
+
+from utils.logging_config import configure_logging
+from utils.logging_utils import (
+    ComponentLogger,
+    RENDERER_CONTEXT,
+    log_operation,
+    log_execution_time
+)
+
+# Configure logging
+configure_logging('dashboard_renderer', log_level="INFO", log_file='/app/data/dashboard.log')
+logger = ComponentLogger('dashboard_renderer')
+logger.logger.add_context(**RENDERER_CONTEXT, renderer_type='dashboard')
 
 app = Flask(__name__)
 
@@ -11,16 +25,33 @@ STATE_FILES = {
     'assignments': '/app/data/assignments.json'
 }
 
-def read_json_file(filepath):
+@log_execution_time(logger.logger)
+def read_json_file(filepath: str) -> Dict[str, Any]:
+    """Read a JSON file with error handling.
+    
+    Args:
+        filepath: Path to the JSON file
+        
+    Returns:
+        Dict containing the file contents or empty dict on error
+    """
     try:
         with open(filepath, 'r') as f:
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logger.logger.warning("Failed to read JSON file",
+                          error=str(e),
+                          error_type=type(e).__name__,
+                          filepath=filepath)
         return {}
 
 @app.route('/')
 def index():
-    html = """
+    """Serve the main dashboard interface."""
+    with log_operation(logger.logger, "serve_index",
+                      path=request.path,
+                      remote_addr=request.remote_addr):
+        html = """
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -81,11 +112,24 @@ def index():
 
 @app.route('/api/status')
 def api_status():
-    status_data = {}
-    for name, filepath in STATE_FILES.items():
-        status_data[name] = read_json_file(filepath)
-    return jsonify(status_data)
+    """Provide API endpoint for dashboard status data."""
+    with log_operation(logger.logger, "get_status",
+                      path=request.path,
+                      remote_addr=request.remote_addr):
+        status_data = {}
+        for name, filepath in STATE_FILES.items():
+            status_data[name] = read_json_file(filepath)
+            
+        logger.logger.info("Status data collected",
+                          roster_nodes=len(status_data.get('roster', {}).get('nodes', [])),
+                          assignments=len(status_data.get('assignments', {}).get('assignments', {})))
+        return jsonify(status_data)
 
 if __name__ == '__main__':
-    print("[Dashboard] ✅ Avviato.")
+    logger.log_startup(
+        service="Shortlist Dashboard",
+        host="0.0.0.0",
+        port=8000
+    )
     app.run(host='0.0.0.0', port=8000)
+    logger.log_shutdown()

@@ -6,6 +6,10 @@ import subprocess
 import random
 import psutil
 from datetime import datetime, timezone, timedelta
+from typing import Any, Dict, Optional
+
+from utils.logging_config import configure_logging
+from utils.logging_utils import ComponentLogger, NODE_CONTEXT, log_operation, log_execution_time, log_state_change
 
 # --- Configuration ---
 NODE_ID_FILE = f".node_id_{os.getpid()}"
@@ -19,6 +23,9 @@ TASK_EXPIRATION = timedelta(seconds=90) # A task is orphaned if its heartbeat is
 IDLE_PULL_INTERVAL = timedelta(seconds=30)
 JITTER_MILLISECONDS = 5000
 
+# Configure logging
+configure_logging('node', log_level="INFO")
+
 # --- State Machine States ---
 class NodeState:
     IDLE = "IDLE"
@@ -26,15 +33,21 @@ class NodeState:
     ACTIVE = "ACTIVE"
 
 # --- Git Operations ---
-def run_command(command, suppress_errors=False):
-    try:
-        result = subprocess.run(command, check=True, text=True, capture_output=True, encoding='utf-8')
-        return result.stdout.strip()
-    except subprocess.CalledProcessError as e:
-        if not suppress_errors:
-            print(f"🚨 Error executing: {' '.join(command)}")
-            print(f"Stderr: {e.stderr}")
-        raise
+def run_command(command: list[str], suppress_errors: bool = False) -> str:
+    logger = ComponentLogger('node').logger
+    cmd_str = ' '.join(command)
+    
+    with log_operation(logger, 'command_execution', command=cmd_str):
+        try:
+            result = subprocess.run(command, check=True, text=True, capture_output=True, encoding='utf-8')
+            return result.stdout.strip()
+        except subprocess.CalledProcessError as e:
+            if not suppress_errors:
+                logger.error("Command execution failed",
+                            command=cmd_str,
+                            stderr=e.stderr,
+                            exit_code=e.returncode)
+            raise
 
 def git_pull():
     run_command(['git', 'pull'])
@@ -70,53 +83,75 @@ def read_json_file(filepath):
         return None
 
 # --- State Machine Logic ---
-class Node:
+class Node(ComponentLogger):
     def __init__(self):
+        super().__init__('node')
         self.node_id = get_node_id()
         self.state = NodeState.IDLE
         self.current_task = None
         self.last_roster_heartbeat = None
-        print(f" Node {self.node_id[:8]}... started. Initial state: {self.state}")
+        
+        # Add persistent context
+        self.logger.add_context(
+            node_id=self.node_id,
+            **NODE_CONTEXT
+        )
+        
+        self.log_startup(
+            state=self.state,
+            node_id_short=self.node_id[:8]
+        )
 
-    def _recover_and_reset(self, error_source):
-        print(f"- ❌ Error in {error_source}. Performing emergency reset to recover.")
+    def _recover_and_reset(self, error_source: str) -> None:
+        self.logger.error("Emergency reset initiated", error_source=error_source)
+        
         try:
-            main_branch = run_command(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], suppress_errors=True).strip()
-            if not main_branch:
-                main_branch = 'main' # Fallback
-            run_command(['git', 'fetch', 'origin'])
-            run_command(['git', 'reset', '--hard', f'origin/{main_branch}'])
-            print("    - ✅ Local repository reset completed.")
+            with log_operation(self.logger, "emergency_reset"):
+                main_branch = run_command(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], suppress_errors=True).strip()
+                if not main_branch:
+                    main_branch = 'main'  # Fallback
+                run_command(['git', 'fetch', 'origin'])
+                run_command(['git', 'reset', '--hard', f'origin/{main_branch}'])
+                self.logger.info("Local repository reset completed")
         except Exception as reset_e:
-            print(f"    - 🚨 CRITICAL ERROR during reset: {reset_e}.")
+            self.logger.critical("Emergency reset failed", error=str(reset_e))
         finally:
+            old_state = self.state
             self.state = NodeState.IDLE
             self.current_task = None
-            print(f"- State reset to IDLE. Waiting 15s before retrying.")
+            
+            log_state_change(self.logger, "node_state", old_state, self.state)
+            self.logger.info("Waiting before retry", wait_seconds=15)
             time.sleep(15)
 
-    def run(self):
+    def run(self) -> None:
         while True:
             try:
-                if self.state == NodeState.IDLE:
-                    self.run_idle_state()
-                elif self.state == NodeState.ATTEMPT_CLAIM:
-                    self.run_attempt_claim_state()
-                elif self.state == NodeState.ACTIVE:
-                    self.run_active_state()
+                with log_operation(self.logger, "state_execution", current_state=self.state):
+                    if self.state == NodeState.IDLE:
+                        self.run_idle_state()
+                    elif self.state == NodeState.ATTEMPT_CLAIM:
+                        self.run_attempt_claim_state()
+                    elif self.state == NodeState.ACTIVE:
+                        self.run_active_state()
             except subprocess.CalledProcessError as e:
-                self._recover_and_reset(f"operazione Git: {' '.join(e.cmd)}")
+                self._recover_and_reset(f"Git operation: {' '.join(e.cmd)}")
             except Exception as e:
-                print(f"❌ Unhandled critical error: {e}. Restarting cycle.")
+                self.logger.critical("Unhandled error in main loop",
+                                   error=str(e),
+                                   error_type=type(e).__name__)
+                old_state = self.state
                 self.state = NodeState.IDLE
+                log_state_change(self.logger, "node_state", old_state, self.state)
                 time.sleep(30)
 
-    def run_idle_state(self):
-        # Heartbeat del roster (se necessario)
+    @log_execution_time
+    def run_idle_state(self) -> None:
+        # Roster heartbeat if needed
         if not self.last_roster_heartbeat or (datetime.now(timezone.utc) - self.last_roster_heartbeat) > HEARTBEAT_INTERVAL:
             self.perform_roster_heartbeat()
 
-        print(f"[{self.state}] 🔄 Checking available tasks...")
+        self.logger.info("Checking available tasks")
         git_pull()
         
         schedule = read_json_file(SCHEDULE_FILE) or {"tasks": []}
@@ -149,12 +184,14 @@ class Node:
             print(f"[{self.state}] No free or orphaned tasks. Waiting {IDLE_PULL_INTERVAL.seconds}s.")
             time.sleep(IDLE_PULL_INTERVAL.seconds)
 
-    def run_attempt_claim_state(self):
-        print(f"[{self.state}] Attempting to claim task: {self.current_task['id']}")
+    @log_execution_time
+    def run_attempt_claim_state(self) -> None:
+        task_id = self.current_task['id']
+        self.logger.info("Attempting to claim task", task_id=task_id)
         
         # Jitter
         wait_ms = random.randint(0, JITTER_MILLISECONDS)
-        print(f"    - Waiting {wait_ms}ms (jitter)...")
+        self.logger.debug("Applying jitter delay", wait_ms=wait_ms)
         time.sleep(wait_ms / 1000.0)
 
         # Pull finale prima del tentativo
@@ -192,18 +229,23 @@ class Node:
             print("    - No changes to commit. Returning to IDLE.")
             self.state = NodeState.IDLE
 
-    def run_active_state(self):
+    @log_execution_time
+    def run_active_state(self) -> None:
         task_id = self.current_task['id']
         task_type = self.current_task['type']
-        print(f"[{self.state}] Executing task: {task_id} (type: {task_type})")
+        
+        with self.logger.context_bind(task_id=task_id, task_type=task_type):
+            self.logger.info("Executing task")
 
-        renderer_path = f"renderers/{task_type}"
-        image_name = f"shortlist-{task_type}-renderer"
+            renderer_path = f"renderers/{task_type}"
+            image_name = f"shortlist-{task_type}-renderer"
 
-        if not os.path.exists(renderer_path):
-            print(f"    - 🚨 Error: No renderer found in {renderer_path}. Releasing task.")
-            self.state = NodeState.IDLE
-            return
+            if not os.path.exists(renderer_path):
+                self.logger.error("Renderer not found", renderer_path=renderer_path)
+                old_state = self.state
+                self.state = NodeState.IDLE
+                log_state_change(self.logger, "node_state", old_state, self.state)
+                return
 
         try:
             # Build Docker image for the renderer
@@ -336,11 +378,13 @@ class Node:
         self.current_task = None
         self.state = NodeState.IDLE
 
-    def perform_roster_heartbeat(self):
-        print("❤️  Performing roster heartbeat...")
+    @log_execution_time
+    def perform_roster_heartbeat(self) -> None:
+        self.logger.info("Performing roster heartbeat")
         try:
-            git_pull()
-            roster = read_json_file(ROSTER_FILE) or {"nodes": []}
+            with log_operation(self.logger, "roster_heartbeat"):
+                git_pull()
+                roster = read_json_file(ROSTER_FILE) or {"nodes": []}
 
             # Collect system metrics
             try:

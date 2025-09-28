@@ -58,6 +58,34 @@ Every node now monitors its own performance (CPU, memory) and reports it in real
 ### The Governor (`governor`)
 A strategic 'brain' with **Priority -2** that dynamically adapts the swarm's tasks (by modifying `schedule.json`) based on rules defined in `triggers.json`. This allows the swarm to react to temporal events or changes in overall health status.
 
+#### Quorum System for Safe Decision Making
+To prevent the governor from making critical decisions when the swarm is in a degraded state, triggers can specify quorum requirements. A quorum defines the minimum number of healthy nodes (either absolute or as a percentage) that must be active for a trigger to be evaluated. This safeguard ensures that major changes only occur when the swarm has sufficient consensus.
+
+Example trigger with quorum requirements:
+```json
+{
+  "id": "emergency_scale_down",
+  "description": "Reduce resource usage under high load",
+  "quorum": {
+    "min_nodes_alive": 3,      // At least 3 nodes must be alive
+    "min_percent_alive": 60    // At least 60% of all nodes must be alive
+  },
+  "condition": {
+    "type": "swarm_metric_agg",
+    "metric": "cpu_load",
+    "aggregate": "average",
+    "operator": ">",
+    "threshold": 90
+  },
+  "action": {
+    "type": "remove_task",
+    "task_id": "video_stream"
+  }
+}
+```
+
+Quorum rules are optional. If not specified, a trigger will be evaluated regardless of swarm health. This is useful for non-critical operations like time-based task scheduling.
+
 ### The Healer (`healer`)
 An 'immune system' with **Priority -1** that continuously scans the swarm's state and automatically corrects inconsistencies, such as task assignments left by 'dead' nodes (zombie assignments), ensuring long-term coherence.
 

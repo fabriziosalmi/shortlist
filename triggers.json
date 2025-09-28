@@ -20,6 +20,10 @@
     {
       "id": "emergency_audio_broadcast_on_high_cpu",
       "description": "Boost audio renderer priority when swarm CPU is high",
+      "quorum": {
+        "min_nodes_alive": 3,
+        "min_percent_alive": 60
+      },
       "condition": {
         "type": "swarm_metric_agg",
         "metric": "cpu_load",
@@ -36,6 +40,10 @@
     {
       "id": "scale_down_on_low_memory",
       "description": "Remove non-essential tasks when memory is low",
+      "quorum": {
+        "min_nodes_alive": 3,
+        "min_percent_alive": 75
+      },
       "condition": {
         "type": "swarm_metric_agg",
         "metric": "memory_percent",
