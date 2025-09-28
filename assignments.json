@@ -33,8 +33,8 @@
     "shortlist_web": {
       "node_id": "c4f78d5d-bdad-4a44-b30e-93d99bcc6135",
       "claimed_at": "2025-09-28T09:44:59.351461+00:00",
-      "task_heartbeat": "2025-09-28T09:44:59.351461+00:00",
-      "status": "claiming"
+      "task_heartbeat": "2025-09-28T09:45:04.793491+00:00",
+      "status": "streaming"
     }
   }
 }
