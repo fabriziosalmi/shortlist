@@ -27,8 +27,8 @@
     "shortlist_audio": {
       "node_id": "addc7d77-c468-4839-92b6-564938ee0ade",
       "claimed_at": "2025-09-28T16:02:44.728847+00:00",
-      "task_heartbeat": "2025-09-28T16:02:44.728847+00:00",
-      "status": "claiming"
+      "task_heartbeat": "2025-09-28T16:04:07.835549+00:00",
+      "status": "streaming"
     },
     "shortlist_web": {
       "node_id": "ba8d0707-8d46-400a-9f38-d5b42749fc65",
