@@ -13,9 +13,9 @@
       "status": "streaming"
     },
     "youtube_video_stream": {
-      "node_id": "508caf59-c99c-448c-ae61-d465983f4137",
-      "claimed_at": "2025-09-28T09:48:43.453641+00:00",
-      "task_heartbeat": "2025-09-28T09:48:43.453641+00:00",
+      "node_id": "2b861fa5-36eb-46f6-a460-c62186a9bd05",
+      "claimed_at": "2025-09-28T09:50:31.734373+00:00",
+      "task_heartbeat": "2025-09-28T09:50:31.734373+00:00",
       "status": "claiming"
     },
     "telegram_text_posts": {
