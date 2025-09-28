@@ -25,7 +25,7 @@ The entire state of the swarm is defined by a few JSON files in this repository:
 
 - `shortlist.json`: The content to be broadcast. This is the only file you should manually edit.
 - `roster.json`: A list of all active nodes in the swarm. Each node maintains its own entry with a periodic "heartbeat".
-- `schedule.json`: Defines the broadcasting "tasks" that the swarm needs to perform (e.g., run a video stream, run an audio stream).
+- `schedule.json`: Defines the broadcasting "tasks" that the swarm needs to perform (e.g., text posts, audio stream, video generation, web interface, dashboard).
 - `assignments.json`: A real-time map of which node is currently performing which task. This is the swarm's coordination "whiteboard".
 
 #### 2. The Node (`node.py`)
@@ -42,11 +42,75 @@ If a node crashes, its heartbeats stop, and the task it was performing becomes "
 
 Renderers are the "muscles" of the swarm. They are containerized applications (managed by Docker) that perform the actual broadcasting.
 
-- Each renderer is specialized for a task type (e.g., `text`, `audio`).
-- The `node.py` script orchestrates these renderers, starting and stopping their containers as needed.
-- This design keeps dependencies isolated and allows for new broadcast platforms to be added easily.
+- Each renderer is specialized for a task type and runs on a dedicated port
+- The `node.py` script orchestrates these renderers, starting and stopping their containers as needed
+- This design keeps dependencies isolated and allows for new broadcast platforms to be added easily
 
---- 
+**Currently Available Renderers:**
+
+- **Dashboard Renderer** (`dashboard`) - Port 8000: Real-time swarm status dashboard showing active nodes, task assignments, and system health
+- **Audio Renderer** (`audio`) - Port 8001: Text-to-Speech audio stream with web player interface
+- **Video Renderer** (`video`) - Port 8002: MP4 video generation with synchronized TTS audio and visual text display
+- **Web Renderer** (`web`) - Port 8003: Simple HTML interface displaying the shortlist content
+- **Text Renderer** (`text`) - Telegram bot integration for text-based social media posting
+
+---
+
+## Current Features
+
+The Shortlist system currently includes the following working renderers:
+
+### 📊 Dashboard Renderer
+- **Real-time monitoring** of all swarm nodes and their status
+- **Task assignment visualization** showing which node is handling what
+- **System health overview** with heartbeat monitoring
+- **Web-based interface** accessible at http://localhost:8000
+
+### 🎵 Audio Renderer
+- **Text-to-Speech generation** using Google TTS
+- **Automatic audio looping** with pauses between items
+- **Web audio player** with HTML5 controls
+- **MP3 streaming** accessible at http://localhost:8001
+
+### 🎬 Video Renderer
+- **MP4 video generation** with visual text display
+- **Synchronized TTS audio** embedded in video
+- **Clean visual design** with centered text on black background
+- **Dynamic duration** based on content length
+- **HTML5 video player** accessible at http://localhost:8002
+
+### 🌐 Web Renderer
+- **Simple HTML interface** displaying shortlist items
+- **Lightweight and fast** for basic content viewing
+- **Mobile-friendly** responsive design
+- **Direct content access** at http://localhost:8003
+
+### 📱 Text Renderer
+- **Telegram bot integration** for social media posting
+- **Automatic content broadcasting** to configured channels
+- **External API integration** with proper authentication
+
+---
+
+## Quick Start
+
+Want to see it in action immediately? Here's the fastest way:
+
+```bash
+git clone <your_repository_url>
+cd shortlist
+python3 node.py
+```
+
+Then open these URLs in your browser:
+- Dashboard: http://localhost:8000
+- Audio: http://localhost:8001
+- Video: http://localhost:8002
+- Web: http://localhost:8003
+
+The system will automatically start generating content from `shortlist.json` and you can see the swarm coordination in real-time!
+
+---
 
 ## Getting Started: How to Run a Node
 
@@ -76,9 +140,24 @@ python3 node.py
 
 The node will generate a unique ID, register itself in `roster.json`, and begin its lifecycle.
 
-#### 3. Enable Renderers (Optional)
+#### 3. Test the System Locally
 
-To allow your node to perform broadcast tasks, you must provide it with the necessary credentials via environment variables before running it.
+The system comes with several renderers that work out of the box without external credentials:
+
+```bash
+python3 node.py
+```
+
+Once a node is running, you can access the different interfaces:
+
+- **Dashboard**: http://localhost:8000 - Monitor swarm activity and node status
+- **Audio Stream**: http://localhost:8001 - Listen to TTS audio of the shortlist
+- **Video Stream**: http://localhost:8002 - Watch video with synchronized audio and text
+- **Web Interface**: http://localhost:8003 - View shortlist in simple HTML format
+
+#### 4. Enable External Integrations (Optional)
+
+For production use with external services, you can provide credentials via environment variables:
 
 **Example: Enabling the Telegram Bot**
 ```bash
@@ -87,16 +166,7 @@ export TELEGRAM_CHAT_ID="@your_channel_name"
 python3 node.py
 ```
 
-**Example: Enabling the Icecast Audio Stream**
-```bash
-export ICECAST_HOST="your_icecast_host.com"
-export ICECAST_PORT="8000"
-export ICECAST_PASSWORD="your_password"
-export ICECAST_MOUNT="/live"
-python3 node.py
-```
-
-#### 4. Enable the Public Ledger (Optional)
+#### 5. Enable the Public Ledger (Optional)
 
 To have your node contribute to the public log of swarm activities:
 

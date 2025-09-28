@@ -1,7 +1,10 @@
 FROM python:3.9-slim
 
-# Installa ffmpeg, necessario per pydub
-RUN apt-get update && apt-get install -y ffmpeg
+# Install ffmpeg and fonts
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    fonts-dejavu \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

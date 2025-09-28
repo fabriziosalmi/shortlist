@@ -1,38 +1,49 @@
+import json
+import os
 import logging
+from gtts import gTTS
+from pydub import AudioSegment
 
-logging.basicConfig(filename='/app/output/audio.log', level=logging.INFO)
+from flask import Flask, send_file, Response
+
+logging.basicConfig(filename='/app/data/audio.log', level=logging.INFO)
+
+# --- Configuration ---
+SHORTLIST_FILE = '/app/data/shortlist.json'
+OUTPUT_DIR = '/app/output'
+GENERATED_MP3_FILE = os.path.join(OUTPUT_DIR, 'shortlist_loop.mp3')
 
 # --- Audio Generation Logic ---
 def generate_audio_file():
-    logging.info("[AudioRenderer] 🎤 Inizio generazione del file audio...")
+    logging.info("[AudioRenderer] 🎤 Starting audio file generation...")
     try:
         with open(SHORTLIST_FILE, 'r') as f:
             items = json.load(f).get('items', [])
     except Exception as e:
-        logging.error(f"[AudioRenderer] 🚨 Errore lettura shortlist: {e}")
+        logging.error(f"[AudioRenderer] 🚨 Error reading shortlist: {e}")
         return False
 
     if not items:
-        logging.warning("[AudioRenderer] ⚠️ Shortlist vuota.")
+        logging.warning("[AudioRenderer] ⚠️ Empty shortlist.")
         return False
 
     pause = AudioSegment.silent(duration=3000)
     final_audio = pause
 
     for i, item_text in enumerate(items, 1):
-        logging.info(f"    - Sintetizzo: '{item_text}'")
+        logging.info(f"    - Synthesizing: '{item_text}'")
         try:
-            tts = gTTS(f"Punto {i}: {item_text}", lang='it')
+            tts = gTTS(f"Point {i}: {item_text}", lang='en')
             temp_path = f"/tmp/item_{i}.mp3"
             tts.save(temp_path)
             item_audio = AudioSegment.from_mp3(temp_path)
             final_audio += item_audio + pause
         except Exception as e:
-            logging.error(f"    - 🚨 Errore durante la sintesi: {e}")
+            logging.error(f"    - 🚨 Error during synthesis: {e}")
 
-    logging.info(f"    - Esporto il file audio finale in: {GENERATED_MP3_FILE}")
+    logging.info(f"    - Exporting final audio file to: {GENERATED_MP3_FILE}")
     final_audio.export(GENERATED_MP3_FILE, format="mp3")
-    logging.info("[AudioRenderer] ✅ File audio generato.")
+    logging.info("[AudioRenderer] ✅ Audio file generated.")
     return True
 
 # --- Web Server Logic ---
@@ -41,7 +52,7 @@ app = Flask(__name__)
 @app.route('/')
 def index():
     html_content = f"""<!DOCTYPE html>
-    <html lang=\"it\">
+    <html lang=\"en\">
     <head>
         <meta charset=\"UTF-8\">
         <title>Shortlist Audio Stream</title>
@@ -55,7 +66,7 @@ def index():
         <h1>Shortlist Audio Stream</h1>
         <audio controls autoplay loop>
             <source src=\"/stream.mp3\" type=\"audio/mpeg\">
-            Il tuo browser non supporta l'elemento audio.
+            Your browser does not support the audio element.
         </audio>
     </body>
     </html>
@@ -65,18 +76,18 @@ def index():
 @app.route('/stream.mp3')
 def stream_mp3():
     if not os.path.exists(GENERATED_MP3_FILE):
-        return "File audio non ancora generato.", 404
+        return "Audio file not yet generated.", 404
     return send_file(GENERATED_MP3_FILE, mimetype='audio/mpeg')
 
 def main():
-    logging.info("[AudioRenderer] ✅ Avviato.")
-    # Genera il file audio una volta all'avvio
+    logging.info("[AudioRenderer] ✅ Started.")
+    # Generate the audio file once at startup
     if generate_audio_file():
-        logging.info("[AudioRenderer] 🌍 Avvio web server sulla porta 8000...")
-        # Ascolta su tutte le interfacce all'interno del container
+        logging.info("[AudioRenderer] 🌍 Starting web server on port 8000...")
+        # Listen on all interfaces within the container
         app.run(host='0.0.0.0', port=8000)
     else:
-        logging.error("[AudioRenderer] 🛑 Avvio fallito, impossibile generare il file audio.")
+        logging.error("[AudioRenderer] 🛑 Startup failed, unable to generate audio file.")
 
 if __name__ == "__main__":
     main()
