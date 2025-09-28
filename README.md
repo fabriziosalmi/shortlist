@@ -341,4 +341,62 @@ The Governance API implements a "Trust Circles" architecture:
 
 ## License
 
+## Structured Logging System
+
+The Shortlist system uses a comprehensive structured logging system across all components:
+
+### Key Features
+
+- **JSON-formatted Logs**: All logs are output in JSON format for better parsing and analysis
+- **Context-aware Logging**: Component-specific and operation-specific context is automatically included
+- **Performance Tracking**: Automatic timing for operations and function execution
+- **Error Context**: Rich error information with type, message, and stack traces when needed
+- **Request Tracing**: HTTP request logging with path, client info, and timing
+- **Component Status**: Consistent startup/shutdown logging across all components
+
+### Log Format Example
+
+```json
+{
+    "timestamp": "2025-09-28T19:57:31.123Z",
+    "level": "INFO",
+    "message": "Request completed",
+    "logger": "admin_ui_renderer",
+    "component_type": "renderer",
+    "renderer_type": "admin_ui",
+    "path": "/api/status",
+    "method": "GET",
+    "remote_addr": "192.168.1.100",
+    "status_code": 200,
+    "execution_time": 0.123
+}
+```
+
+### Component Logging
+
+Each component in the system includes structured logging:
+
+- **Node Core**: Task management, assignment tracking, and state changes
+- **Admin UI**: User interactions and API proxy operations
+- **Governance API**: Authentication, git operations, and PR management
+- **Audio Renderer**: TTS synthesis and stream management
+- **Video Renderer**: Media generation and streaming
+- **Dashboard**: System state monitoring and data aggregation
+- **Governor**: Trigger evaluation and schedule management
+- **Healer**: Health checks and zombie task cleanup
+
+### Log Files
+
+Component logs are stored in `/app/data/` with component-specific files:
+- `admin_ui.log`: Control room interface logs
+- `api.log`: Governance API logs
+- `audio.log`: Audio renderer logs
+- `dashboard.log`: Status dashboard logs
+- `governor.log`: Governor component logs
+- `healer.log`: Healer component logs
+- `text.log`: Text renderer logs
+- `video.log`: Video renderer logs
+
+---
+
 This project is licensed under the MIT License.
