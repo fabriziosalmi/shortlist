@@ -139,8 +139,24 @@ def get_governance_status():
         if not governance_assignment:
             return jsonify({
                 "available": False,
-                "error": "Governance API task not assigned to any node"
+                "error": "task not assigned",
+                "error_type": "no_assignment",
+                "message": "No node has claimed the governance API task yet"
             })
+
+        # Check if the task assignment is recent (heartbeat within last 2 minutes)
+        from datetime import datetime, timezone, timedelta
+        try:
+            last_heartbeat = datetime.fromisoformat(governance_assignment.get("task_heartbeat", "1970-01-01T00:00:00+00:00"))
+            if (datetime.now(timezone.utc) - last_heartbeat) > timedelta(minutes=2):
+                return jsonify({
+                    "available": False,
+                    "error": "task assignment expired",
+                    "error_type": "stale_assignment",
+                    "message": f"Task assigned to node but heartbeat is stale (last: {governance_assignment.get('task_heartbeat', 'unknown')})"
+                })
+        except Exception:
+            pass  # Continue with connection attempt
 
         # Construct actual container name: task_id-node_id[:8]
         node_id = governance_assignment["node_id"]
@@ -152,18 +168,44 @@ def get_governance_status():
             return jsonify({
                 "available": True,
                 "status": response.json(),
-                "container_name": container_name
+                "container_name": container_name,
+                "node_id": node_id[:8]
             })
         else:
             return jsonify({
                 "available": False,
                 "error": f"API returned status {response.status_code}",
+                "error_type": "http_error",
                 "container_name": container_name
             })
+    except requests.exceptions.ConnectionError as e:
+        error_msg = str(e)
+        if "Failed to resolve" in error_msg or "Name or service not known" in error_msg:
+            return jsonify({
+                "available": False,
+                "error": "Service not running",
+                "error_type": "container_not_running",
+                "message": "The governance API container is not currently active"
+            })
+        else:
+            return jsonify({
+                "available": False,
+                "error": "Connection failed",
+                "error_type": "connection_error",
+                "message": "Cannot connect to the governance API service"
+            })
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "available": False,
+            "error": "Service timeout",
+            "error_type": "timeout",
+            "message": "The governance API service is not responding"
+        })
     except requests.exceptions.RequestException as e:
         return jsonify({
             "available": False,
-            "error": str(e)
+            "error": str(e),
+            "error_type": "request_error"
         })
 
 @app.route("/ui/propose", methods=["POST"])

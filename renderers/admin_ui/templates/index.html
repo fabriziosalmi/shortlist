@@ -565,12 +565,11 @@ Ready to execute commands...
                 updateGovernanceStatusUI(data);
                 logMessage('Governance API status checked', 'success');
             } catch (error) {
-                elements.governanceStatus.innerHTML = `
-                    <div style="color: #f56565;">
-                        ❌ Connection Error<br>
-                        <small>${error.message}</small>
-                    </div>
-                `;
+                // Handle client-side fetch errors gracefully
+                updateGovernanceStatusUI({
+                    available: false,
+                    error: error.message || 'Failed to check governance API status'
+                });
                 logMessage(`Error checking governance API: ${error.message}`, 'error');
             } finally {
                 hideSpinner(elements.governanceSpinner);
@@ -775,14 +774,70 @@ Ready to execute commands...
                         </div>
                     </div>
                     <div class="text-small text-muted" style="margin-top: 1rem;">
-                        Repository: ${status.github_repo}
+                        Repository: ${status.github_repo || 'Not configured'}
                     </div>
                 `;
             } else {
+                // Provide user-friendly error states based on backend categorization
+                let errorMessage = data.error || 'Service is currently unavailable';
+                let helpText = data.message || '';
+
+                // Use structured error types from backend if available
+                if (data.error_type) {
+                    switch (data.error_type) {
+                        case 'no_assignment':
+                            errorMessage = 'Task not assigned';
+                            helpText = 'No node has claimed the governance API task yet. This will happen automatically when a properly configured node joins the swarm.';
+                            break;
+                        case 'stale_assignment':
+                            errorMessage = 'Task assignment expired';
+                            helpText = 'The assigned node appears to be inactive. The task should be reassigned automatically to another node.';
+                            break;
+                        case 'container_not_running':
+                            errorMessage = 'Service not running';
+                            helpText = 'The governance API container is not currently active. This may indicate missing environment variables or container startup issues.';
+                            break;
+                        case 'connection_error':
+                            errorMessage = 'Connection failed';
+                            helpText = 'Cannot connect to the governance API service. It may be starting up or have networking issues.';
+                            break;
+                        case 'timeout':
+                            errorMessage = 'Service timeout';
+                            helpText = 'The governance API service is not responding. It may be overloaded or misconfigured.';
+                            break;
+                        case 'http_error':
+                            errorMessage = 'Service error';
+                            helpText = 'The governance API service returned an error. Check the container logs for details.';
+                            break;
+                        default:
+                            errorMessage = data.error;
+                            helpText = data.message || 'There may be an issue with the service configuration.';
+                    }
+                } else {
+                    // Fallback for legacy error formats
+                    if (data.error && data.error.includes('task not assigned')) {
+                        errorMessage = 'Task not assigned';
+                        helpText = 'No node has claimed the governance API task yet. Wait for a node to pick it up automatically.';
+                    }
+                }
+
                 elements.governanceStatus.innerHTML = `
-                    <div style="color: #f56565;">
-                        ❌ Governance API Unavailable<br>
-                        <small class="text-muted">${data.error}</small>
+                    <div style="color: #f56565; margin-bottom: 1rem;">
+                        ❌ Governance API Unavailable
+                    </div>
+                    <div style="color: #718096; margin-bottom: 0.5rem; font-weight: 500;">
+                        ${errorMessage}
+                    </div>
+                    <div style="color: #a0aec0; font-size: 0.875rem; line-height: 1.4;">
+                        ${helpText}
+                    </div>
+                    <div style="margin-top: 1rem; padding: 0.75rem; background: #f7fafc; border-radius: 6px; border-left: 4px solid #cbd5e0;">
+                        <div style="font-weight: 500; color: #4a5568; margin-bottom: 0.5rem;">💡 To enable governance API:</div>
+                        <div style="color: #718096; font-size: 0.875rem;">
+                            1. Set environment variables: GIT_AUTH_TOKEN, GITHUB_REPO<br>
+                            2. Start a node: <code style="background: #e2e8f0; padding: 2px 4px; border-radius: 3px;">python3 node.py</code><br>
+                            3. Wait for automatic task assignment
+                        </div>
                     </div>
                 `;
             }
