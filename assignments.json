@@ -9,8 +9,8 @@
     "self_hosted_audio_stream": {
       "node_id": "00b31c49-01d6-4303-b437-82d9c2b882d8",
       "claimed_at": "2025-09-28T09:48:39.797228+00:00",
-      "task_heartbeat": "2025-09-28T09:48:39.797228+00:00",
-      "status": "claiming"
+      "task_heartbeat": "2025-09-28T09:50:15.084957+00:00",
+      "status": "streaming"
     },
     "youtube_video_stream": {
       "node_id": "508caf59-c99c-448c-ae61-d465983f4137",
