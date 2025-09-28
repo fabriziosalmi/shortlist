@@ -226,6 +226,13 @@ class Node:
                 port_mapping = ['-p', '8001:8000']
             elif task_type == 'dashboard':
                 port_mapping = ['-p', '8000:8000']
+            elif task_type == 'api':
+                port_mapping = ['-p', '8002:8000']
+                volumes += [
+                    '-v', f'{os.path.abspath("./output")}:/app/data',
+                ]
+            elif task_type == 'web':
+                port_mapping = ['-p', '8003:8000']
 
             # Avvio del container del renderer
             print(f"    - Avvio il container dal'immagine: {image_name}...")
@@ -234,6 +241,7 @@ class Node:
                 '--name', f'{task_id}-{self.node_id[:8]}', # Nome univoco per il container
             ] + volumes + port_mapping + [image_name])
             print(f"    - Container {container_id[:12]} avviato.")
+            print(f"    - Docker run output: {container_id}")
 
         except Exception as e:
             print(f"    - 🚨 Errore durante la gestione di Docker: {e}. Ritorno a IDLE.")

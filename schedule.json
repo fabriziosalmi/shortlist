@@ -1,8 +1,1 @@
-{
-  "tasks": [
-    { "id": "swarm_status_dashboard", "type": "dashboard", "priority": 0 },
-    { "id": "youtube_video_stream", "type": "video", "priority": 1 },
-    { "id": "self_hosted_audio_stream", "type": "audio", "priority": 2 },
-    { "id": "telegram_text_posts", "type": "text", "priority": 3 }
-  ]
-}
+{"tasks": [{"id": "shortlist_api", "type": "api", "priority": 0}]}
