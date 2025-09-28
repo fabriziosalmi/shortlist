@@ -8,8 +8,8 @@
     },
     "youtube_video_stream": {
       "node_id": "7ce81110-18c9-44e9-bea6-db574a1ed27b",
-      "claimed_at": "2025-09-28T09:28:06.877839+00:00",
-      "task_heartbeat": "2025-09-28T09:28:06.877839+00:00",
+      "claimed_at": "2025-09-28T09:29:56.326448+00:00",
+      "task_heartbeat": "2025-09-28T09:29:56.326448+00:00",
       "status": "claiming"
     },
     "self_hosted_audio_stream": {
