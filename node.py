@@ -208,47 +208,56 @@ class Node:
             print(f"    - Building Docker image: {image_name}...")
             run_command(['docker', 'build', '-t', image_name, renderer_path])
 
-            # Prepare volumes
-            volumes = [
-                '-v', f'{os.path.abspath("shortlist.json")}:/app/data/shortlist.json:ro', # Read shortlist
-                '-v', f'{os.path.abspath("./output")}:/app/output', # Write output
-            ]
-            if task_type == 'dashboard':
-                volumes += [
-                    '-v', f'{os.path.abspath("roster.json")}:/app/data/roster.json:ro',
-                    '-v', f'{os.path.abspath("schedule.json")}:/app/data/schedule.json:ro',
-                    '-v', f'{os.path.abspath("assignments.json")}:/app/data/assignments.json:ro',
-                ]
-
-            # Prepare port mapping flags
+            # Prepare volumes and port mapping
             port_mapping = []
-            if task_type == 'audio':
-                port_mapping = ['-p', '8001:8000']
-                volumes += [
-                    '-v', f'{os.path.abspath("./output")}:/app/output',
+            if task_type == 'governor' or task_type == 'healer':
+                # Governor and Healer need full access to the repo for git operations and file manipulation
+                volumes = [
+                    '-v', f'{os.path.abspath(".")}:/app',
                 ]
-            elif task_type == 'dashboard':
-                port_mapping = ['-p', '8000:8000']
-            elif task_type == 'video':
-                port_mapping = ['-p', '8002:8000']
-                volumes += [
-                    '-v', f'{os.path.abspath("./output")}:/app/output',
+            else:
+                # Default volumes for other renderers
+                volumes = [
+                    '-v', f'{os.path.abspath("shortlist.json")}:/app/data/shortlist.json:ro', # Read shortlist
                 ]
-            elif task_type == 'web':
-                port_mapping = ['-p', '8003:8000']
-                volumes += [
-                    '-v', f'{os.path.abspath("./output")}:/app/data',
-                ]
-            elif task_type == 'api':
-                port_mapping = ['-p', '8004:8000']
-                volumes += [
-                    '-v', f'{os.path.abspath("./output")}:/app/data',
-                ]
-            elif task_type == 'admin_ui':
-                port_mapping = ['-p', '8005:8000']
-                volumes += [
-                    '-v', f'{os.path.abspath(".")}:/app/data',
-                ]
+                if task_type == 'dashboard':
+                    volumes += [
+                        '-v', f'{os.path.abspath("roster.json")}:/app/data/roster.json:ro',
+                        '-v', f'{os.path.abspath("schedule.json")}:/app/data/schedule.json:ro',
+                        '-v', f'{os.path.abspath("assignments.json")}:/app/data/assignments.json:ro',
+                    ]
+                
+                # Specific volumes and port mappings
+                if task_type == 'audio':
+                    port_mapping = ['-p', '8001:8000']
+                    volumes += [
+                        '-v', f'{os.path.abspath("./output")}:/app/output',
+                    ]
+                elif task_type == 'dashboard':
+                    port_mapping = ['-p', '8000:8000']
+                    volumes += [
+                        '-v', f'{os.path.abspath("./output")}:/app/output', # Dashboard also writes to output
+                    ]
+                elif task_type == 'video':
+                    port_mapping = ['-p', '8002:8000']
+                    volumes += [
+                        '-v', f'{os.path.abspath("./output")}:/app/output',
+                    ]
+                elif task_type == 'web':
+                    port_mapping = ['-p', '8003:8000']
+                    volumes += [
+                        '-v', f'{os.path.abspath("./output")}:/app/data', # This is different from /app/output
+                    ]
+                elif task_type == 'api':
+                    port_mapping = ['-p', '8004:8000']
+                    volumes += [
+                        '-v', f'{os.path.abspath("./output")}:/app/data', # This is different from /app/output
+                    ]
+                elif task_type == 'admin_ui':
+                    port_mapping = ['-p', '8005:8000']
+                    volumes += [
+                        '-v', f'{os.path.abspath(".")}:/app/data', # This mounts the whole repo to /app/data
+                    ]
 
             # Prepare environment variables for API container
             env_vars = []

@@ -1,7 +1,2 @@
-fastapi
-uvicorn
-python-dotenv
-requests
 GitPython
-docker
-pydantic
+python-dateutil

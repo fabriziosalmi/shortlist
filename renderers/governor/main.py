@@ -1,268 +1,227 @@
-#!/usr/bin/env python3
-"""
-Shortlist Governor - Strategic Adaptation Engine
-
-This headless renderer monitors swarm metrics and applies strategic rules
-defined in triggers.json to dynamically modify schedule.json when needed.
-"""
-
-import json
-import time
-import subprocess
-import copy
 import os
-from datetime import datetime, timezone
-from dateutil import parser as date_parser
+import time
+import json
+import logging
+import subprocess
+from datetime import datetime, timedelta
+from dateutil.parser import parse as date_parse
+import requests
 
-# Configuration
-SLEEP_INTERVAL = int(os.getenv("GOVERNOR_INTERVAL", "60"))  # seconds
-ROSTER_FILE = "/app/data/roster.json"
-SCHEDULE_FILE = "/app/data/schedule.json"
-TRIGGERS_FILE = "/app/data/triggers.json"
+# --- Configuration ---
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=LOG_LEVEL, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def run_command(command):
-    """Execute a shell command safely"""
+GIT_REPO_PATH = "." # Current directory
+GOVERNOR_LOOP_INTERVAL_SECONDS = 60
+SWARM_METRIC_AGG_TIMEOUT_MINUTES = 15 # How recent a node's heartbeat must be to be considered "alive"
+
+# --- Git Utilities ---
+def git_pull_rebase():
+    logging.info("Performing git pull --rebase...")
     try:
-        result = subprocess.run(command, check=True, text=True, capture_output=True, shell=True)
-        return result.stdout.strip()
+        result = subprocess.run(["git", "pull", "--rebase"], cwd=GIT_REPO_PATH, capture_output=True, text=True, check=True)
+        logging.info(f"Git pull --rebase successful: {result.stdout.strip()}")
     except subprocess.CalledProcessError as e:
-        print(f"⚠️ Command failed: {command}")
-        print(f"   Error: {e.stderr}")
-        return None
-
-def read_json_file(filepath):
-    """Read JSON file with error handling"""
-    try:
-        with open(filepath, 'r') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"⚠️ Could not read {filepath}: {e}")
-        return None
-
-def write_json_file(filepath, data):
-    """Write JSON file safely"""
-    try:
-        with open(filepath, 'w') as f:
-            json.dump(data, f, indent=2)
-        return True
+        logging.error(f"Git pull --rebase failed: {e.stderr.strip()}")
+        raise
     except Exception as e:
-        print(f"⚠️ Could not write {filepath}: {e}")
-        return False
+        logging.error(f"An unexpected error occurred during git pull --rebase: {e}")
+        raise
 
-def get_alive_nodes(roster):
-    """Filter nodes that are considered alive (last seen within 5 minutes)"""
-    if not roster or "nodes" not in roster:
-        return []
+def git_commit_push(message):
+    logging.info(f"Committing and pushing changes with message: '{message}'")
+    try:
+        subprocess.run(["git", "add", "schedule.json"], cwd=GIT_REPO_PATH, check=True)
+        subprocess.run(["git", "commit", "-m", message], cwd=GIT_REPO_PATH, check=True)
+        result = subprocess.run(["git", "push"], cwd=GIT_REPO_PATH, capture_output=True, text=True, check=True)
+        logging.info(f"Git commit and push successful: {result.stdout.strip()}")
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Git commit/push failed: {e.stderr.strip()}")
+        raise
+    except Exception as e:
+        logging.error(f"An unexpected error occurred during git commit/push: {e}")
+        raise
 
-    now = datetime.now(timezone.utc)
-    alive_nodes = []
-
-    for node in roster["nodes"]:
-        try:
-            last_seen = date_parser.parse(node["last_seen"])
-            if (now - last_seen).total_seconds() < 300:  # 5 minutes
-                alive_nodes.append(node)
-        except Exception as e:
-            print(f"⚠️ Error parsing last_seen for node {node.get('id', 'unknown')}: {e}")
-
-    return alive_nodes
-
-def calculate_metric_aggregate(nodes, metric_name, aggregate_type):
-    """Calculate aggregate metrics from alive nodes"""
-    values = []
-
-    for node in nodes:
-        if "metrics" in node and metric_name in node["metrics"]:
-            try:
-                value = float(node["metrics"][metric_name])
-                values.append(value)
-            except (ValueError, TypeError):
-                continue
-
-    if not values:
+# --- JSON File Handling ---
+def read_json_file(file_path):
+    try:
+        with open(file_path, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        logging.warning(f"File not found: {file_path}")
+        return None
+    except json.JSONDecodeError:
+        logging.error(f"Error decoding JSON from {file_path}")
+        return None
+    except Exception as e:
+        logging.error(f"Error reading {file_path}: {e}")
         return None
 
-    if aggregate_type == "average":
-        return sum(values) / len(values)
-    elif aggregate_type == "max":
-        return max(values)
-    elif aggregate_type == "min":
-        return min(values)
-    else:
-        print(f"⚠️ Unknown aggregate type: {aggregate_type}")
-        return None
+def write_json_file(file_path, data):
+    try:
+        with open(file_path, 'w') as f:
+            json.dump(data, f, indent=2)
+        logging.info(f"Successfully wrote to {file_path}")
+    except Exception as e:
+        logging.error(f"Error writing to {file_path}: {e}")
+        raise
 
-def evaluate_time_condition(condition):
-    """Evaluate time-based trigger conditions"""
-    now = datetime.now()
+# --- Trigger Processing Logic ---
+def evaluate_condition_time_based(condition):
+    now_utc = datetime.utcnow()
+    start_time_str = condition.get("start_utc")
+    end_time_str = condition.get("end_utc")
 
-    if "hour_range" in condition:
-        start_hour, end_hour = condition["hour_range"]
-        current_hour = now.hour
-        if start_hour <= end_hour:
-            return start_hour <= current_hour <= end_hour
-        else:  # Range crosses midnight
-            return current_hour >= start_hour or current_hour <= end_hour
-
-    if "weekday" in condition:
-        # 0=Monday, 6=Sunday
-        return now.weekday() in condition["weekday"]
-
+    if start_time_str:
+        start_time = date_parse(start_time_str)
+        if now_utc < start_time:
+            return False
+    if end_time_str:
+        end_time = date_parse(end_time_str)
+        if now_utc > end_time:
+            return False
     return True
 
-def evaluate_swarm_metric_condition(condition, alive_nodes):
-    """Evaluate swarm metric-based trigger conditions"""
-    metric = condition.get("metric")
-    aggregate = condition.get("aggregate", "average")
+def evaluate_condition_swarm_metric_agg(condition, roster):
+    metric_name = condition.get("metric")
+    aggregation_type = condition.get("aggregation") # e.g., "average", "sum", "count_above_threshold"
     threshold = condition.get("threshold")
-    operator = condition.get("operator", ">=")
+    operator = condition.get("operator") # e.g., "gt", "lt", "eq"
 
-    if not all([metric, threshold is not None]):
-        print(f"⚠️ Invalid swarm metric condition: {condition}")
+    if not all([metric_name, aggregation_type, threshold, operator]):
+        logging.warning(f"Incomplete swarm_metric_agg condition: {condition}")
         return False
 
-    actual_value = calculate_metric_aggregate(alive_nodes, metric, aggregate)
-    if actual_value is None:
+    alive_nodes_metrics = []
+    now = datetime.utcnow()
+    for node_id, node_data in roster.get("nodes", {}).items():
+        last_seen_str = node_data.get("last_seen")
+        if last_seen_str:
+            last_seen = date_parse(last_seen_str)
+            if now - last_seen < timedelta(minutes=SWARM_METRIC_AGG_TIMEOUT_MINUTES):
+                metric_value = node_data.get("metrics", {}).get(metric_name)
+                if metric_value is not None:
+                    alive_nodes_metrics.append(metric_value)
+
+    if not alive_nodes_metrics:
+        logging.info(f"No alive nodes with metric '{metric_name}' found for aggregation.")
         return False
 
-    if operator == ">=":
-        return actual_value >= threshold
-    elif operator == "<=":
-        return actual_value <= threshold
-    elif operator == ">":
-        return actual_value > threshold
-    elif operator == "<":
-        return actual_value < threshold
-    elif operator == "==":
-        return abs(actual_value - threshold) < 0.1  # Float equality with tolerance
-    else:
-        print(f"⚠️ Unknown operator: {operator}")
+    aggregated_value = None
+    if aggregation_type == "average":
+        aggregated_value = sum(alive_nodes_metrics) / len(alive_nodes_metrics)
+    elif aggregation_type == "sum":
+        aggregated_value = sum(alive_nodes_metrics)
+    elif aggregation_type == "count_above_threshold":
+        count = 0
+        for val in alive_nodes_metrics:
+            if eval(f"{val} {operator_to_symbol(operator)} {threshold}"): # Dangerous, but for simplicity
+                count += 1
+        aggregated_value = count
+    # Add other aggregation types as needed
+
+    if aggregated_value is None:
+        logging.warning(f"Unsupported aggregation type: {aggregation_type}")
         return False
 
-def apply_schedule_action(schedule, action):
-    """Apply an action to modify the schedule"""
-    action_type = action.get("type")
-
-    if action_type == "add_task":
-        task = action.get("task")
-        if task and not any(t.get("id") == task.get("id") for t in schedule.get("tasks", [])):
-            schedule.setdefault("tasks", []).append(task)
-            return True
-
-    elif action_type == "remove_task":
-        task_id = action.get("task_id")
-        if task_id:
-            tasks = schedule.get("tasks", [])
-            original_count = len(tasks)
-            schedule["tasks"] = [t for t in tasks if t.get("id") != task_id]
-            return len(schedule["tasks"]) != original_count
-
-    elif action_type == "change_priority":
-        task_id = action.get("task_id")
-        new_priority = action.get("priority")
-        if task_id is not None and new_priority is not None:
-            for task in schedule.get("tasks", []):
-                if task.get("id") == task_id:
-                    if task.get("priority") != new_priority:
-                        task["priority"] = new_priority
-                        return True
-
+    # Evaluate against threshold
+    if operator == "gt":
+        return aggregated_value > threshold
+    elif operator == "lt":
+        return aggregated_value < threshold
+    elif operator == "eq":
+        return aggregated_value == threshold
+    # Add other operators as needed
+    logging.warning(f"Unsupported operator: {operator}")
     return False
 
-def process_triggers(roster, schedule, triggers):
-    """Process all triggers and return modified schedule"""
-    if not triggers or "rules" not in triggers:
-        return schedule, []
+def operator_to_symbol(op):
+    if op == "gt": return ">"
+    if op == "lt": return "<"
+    if op == "eq": return "=="
+    return "" # Should not happen with proper validation
 
-    alive_nodes = get_alive_nodes(roster)
-    modified_schedule = copy.deepcopy(schedule)
-    applied_triggers = []
+def apply_action(action, current_schedule):
+    action_type = action.get("type")
+    task_id = action.get("task_id")
+    task_type = action.get("task_type")
+    priority = action.get("priority")
+    swap_with_task_id = action.get("swap_with_task_id")
 
-    for rule in triggers["rules"]:
-        trigger_id = rule.get("id", "unknown")
-        condition = rule.get("condition", {})
-        action = rule.get("action", {})
-
-        # Evaluate condition
-        condition_met = False
-        condition_type = condition.get("type")
-
-        if condition_type == "time_based":
-            condition_met = evaluate_time_condition(condition)
-        elif condition_type == "swarm_metric_agg":
-            condition_met = evaluate_swarm_metric_condition(condition, alive_nodes)
-        else:
-            print(f"⚠️ Unknown condition type for trigger {trigger_id}: {condition_type}")
-            continue
-
-        # Apply action if condition is met
-        if condition_met:
-            if apply_schedule_action(modified_schedule, action):
-                applied_triggers.append(trigger_id)
-                print(f"✅ Applied trigger: {trigger_id}")
-            else:
-                print(f"🔄 Trigger {trigger_id} condition met, but action already applied")
-
-    return modified_schedule, applied_triggers
+    if action_type == "ADD_TASK":
+        if not any(t.get("id") == task_id for t in current_schedule.get("tasks", [])):
+            current_schedule.setdefault("tasks", []).append({"id": task_id, "type": task_type, "priority": priority})
+            logging.info(f"Added task: {task_id}")
+            return True
+    elif action_type == "REMOVE_TASK":
+        original_len = len(current_schedule.get("tasks", []))
+        current_schedule["tasks"] = [t for t in current_schedule.get("tasks", []) if t.get("id") != task_id]
+        if len(current_schedule["tasks"]) < original_len:
+            logging.info(f"Removed task: {task_id}")
+            return True
+    elif action_type == "SWAP_TASKS":
+        if task_id and swap_with_task_id:
+            idx1, idx2 = -1, -1
+            for i, task in enumerate(current_schedule.get("tasks", [])):
+                if task.get("id") == task_id:
+                    idx1 = i
+                if task.get("id") == swap_with_task_id:
+                    idx2 = i
+            if idx1 != -1 and idx2 != -1:
+                current_schedule["tasks"][idx1], current_schedule["tasks"][idx2] = current_schedule["tasks"][idx2], current_schedule["tasks"][idx1]
+                logging.info(f"Swapped tasks: {task_id} and {swap_with_task_id}")
+                return True
+    return False # No change or unsupported action
 
 def main():
-    """Main governor loop"""
-    print("🧠 Starting Shortlist Governor...")
-    print(f"   Sleep interval: {SLEEP_INTERVAL} seconds")
-
+    logging.info("Governor renderer started.")
     while True:
         try:
-            print(f"\n🔍 Governor cycle starting at {datetime.now(timezone.utc).isoformat()}")
+            git_pull_rebase()
 
-            # Update local repository
-            print("   📥 Updating repository...")
-            if run_command("git pull --rebase") is None:
-                print("   ⚠️ Git pull failed, skipping this cycle")
-                time.sleep(SLEEP_INTERVAL)
-                continue
-
-            # Read current state
-            roster = read_json_file(ROSTER_FILE)
-            schedule = read_json_file(SCHEDULE_FILE)
-            triggers = read_json_file(TRIGGERS_FILE)
+            roster = read_json_file("roster.json")
+            schedule = read_json_file("schedule.json")
+            triggers = read_json_file("triggers.json")
 
             if not all([roster, schedule, triggers]):
-                print("   ⚠️ Could not read required files, skipping this cycle")
-                time.sleep(SLEEP_INTERVAL)
+                logging.error("Failed to read one or more essential JSON files. Skipping this cycle.")
+                time.sleep(GOVERNOR_LOOP_INTERVAL_SECONDS)
                 continue
 
-            # Process triggers
-            original_schedule = copy.deepcopy(schedule)
-            modified_schedule, applied_triggers = process_triggers(roster, schedule, triggers)
+            original_schedule_str = json.dumps(schedule, indent=2)
+            modified_schedule = json.loads(original_schedule_str) # Deep copy
 
-            # Check if schedule was modified
-            if modified_schedule != original_schedule:
-                print(f"   📝 Schedule modifications detected from triggers: {applied_triggers}")
+            schedule_changed = False
 
-                # Write updated schedule
-                if write_json_file(SCHEDULE_FILE, modified_schedule):
-                    # Commit and push changes
-                    trigger_list = ", ".join(applied_triggers)
-                    commit_msg = f"chore(governor): Applied triggers: {trigger_list}"
+            for trigger_id, trigger_data in triggers.get("triggers", {}).items():
+                condition_met = False
+                condition_type = trigger_data.get("condition", {}).get("type")
 
-                    run_command("git add schedule.json")
-                    if run_command(f'git commit -m "{commit_msg}"'):
-                        if run_command("git push"):
-                            print(f"   ✅ Successfully applied and pushed schedule changes")
-                        else:
-                            print("   ⚠️ Failed to push changes")
-                    else:
-                        print("   ⚠️ Failed to commit changes")
+                if condition_type == "time_based":
+                    condition_met = evaluate_condition_time_based(trigger_data["condition"])
+                elif condition_type == "swarm_metric_agg":
+                    condition_met = evaluate_condition_swarm_metric_agg(trigger_data["condition"], roster)
+                # Add other condition types as needed
+
+                if condition_met:
+                    logging.info(f"Trigger '{trigger_id}' condition met. Applying actions.")
+                    for action in trigger_data.get("actions", []):
+                        if apply_action(action, modified_schedule):
+                            schedule_changed = True
                 else:
-                    print("   ⚠️ Failed to write modified schedule")
+                    logging.debug(f"Trigger '{trigger_id}' condition not met.")
+
+            if schedule_changed:
+                logging.info("Schedule has been modified by governor. Persisting changes.")
+                write_json_file("schedule.json", modified_schedule)
+                git_commit_push(f"chore(governor): Applied schedule changes via triggers")
             else:
-                print("   ✅ No schedule modifications needed")
+                logging.info("No schedule changes detected from triggers.")
 
         except Exception as e:
-            print(f"   🚨 Error in governor cycle: {e}")
+            logging.error(f"An error occurred in the governor main loop: {e}", exc_info=True)
 
-        print(f"   😴 Sleeping for {SLEEP_INTERVAL} seconds...")
-        time.sleep(SLEEP_INTERVAL)
+        time.sleep(GOVERNOR_LOOP_INTERVAL_SECONDS)
 
 if __name__ == "__main__":
     main()

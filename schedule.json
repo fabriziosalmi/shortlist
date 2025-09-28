@@ -1,5 +1,7 @@
 {
   "tasks": [
+    { "id": "system_governor", "type": "governor", "priority": -2 },
+    { "id": "system_healer", "type": "healer", "priority": -1 },
     { "id": "shortlist_governance_api", "type": "api", "priority": 0 },
     { "id": "shortlist_admin_ui", "type": "admin_ui", "priority": 1 },
     { "id": "shortlist_dashboard", "type": "dashboard", "priority": 2 },

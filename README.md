@@ -46,8 +46,27 @@ Renderers are the "muscles" of the swarm. They are containerized applications (m
 - The `node.py` script orchestrates these renderers, starting and stopping their containers as needed
 - This design keeps dependencies isolated and allows for new broadcast platforms to be added easily
 
+---
+
+## 🧠 Adaptive Swarm: The Autonomous Core
+
+The Shortlist swarm is now equipped with autonomous capabilities, allowing it to adapt and self-heal based on real-time metrics and predefined rules. This is achieved through the integration of two new systemic renderers: the Governor and the Healer.
+
+### Node Self-Awareness
+Every node now monitors its own performance (CPU, memory) and reports it in real-time, transforming the swarm into a sensory system. This data is crucial for the Governor to make informed decisions.
+
+### The Governor (`governor`)
+A strategic 'brain' with **Priority -2** that dynamically adapts the swarm's tasks (by modifying `schedule.json`) based on rules defined in `triggers.json`. This allows the swarm to react to temporal events or changes in overall health status.
+
+### The Healer (`healer`)
+An 'immune system' with **Priority -1** that continuously scans the swarm's state and automatically corrects inconsistencies, such as task assignments left by 'dead' nodes (zombie assignments), ensuring long-term coherence.
+
+---
+
 **Currently Available Renderers (by priority):**
 
+- **🧠 Governor** (`governor`) - **Priority -2**: Strategic 'brain' that adapts swarm tasks based on `triggers.json`
+- **🩹 Healer** (`healer`) - **Priority -1**: 'Immune system' that corrects state inconsistencies like zombie assignments
 - **🛡️ Governance API** (`api`) - Port 8004 - **Priority 0**: Secure API for shortlist management with tiered access control
 - **🎛️ Control Room** (`admin_ui`) - Port 8005 - **Priority 1**: **PRIMARY INTERFACE** - Complete monitoring, governance, and editing
 - **📊 Dashboard** (`dashboard`) - Port 8000 - **Priority 2**: Basic swarm status monitoring
