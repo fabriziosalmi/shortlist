@@ -8,6 +8,7 @@
     { "id": "telegram_text_posts", "type": "text", "priority": 3 },
     { "id": "shortlist_audio", "type": "audio", "priority": 4 },
     { "id": "shortlist_video", "type": "video", "priority": 5 },
-    { "id": "shortlist_web", "type": "web", "priority": 6 }
+    { "id": "shortlist_web", "type": "web", "priority": 6 },
+    { "id": "system_archiver", "type": "archiver", "priority": 99, "config": { "jobs": [ { "id": "daily_local_backup", "enabled": true, "schedule": "0 3 * * *", "retention_days": 7, "storage_backend": "local", "settings": { "path": "/backups/shortlist" } }, { "id": "weekly_sftp_offsite_backup", "enabled": true, "schedule": "0 5 * * 0", "retention_days": 30, "storage_backend": "sftp", "settings": { "host": "backup.example.com", "port": 22, "username": "shortlist_bot", "remote_path": "/offsite/shortlist" } } ] } }
   ]
 }
