@@ -1,10 +1,10 @@
 {
   "assignments": {
-    "shortlist_web": {
-      "node_id": "4bc33b99-7cb0-40b3-96b4-a0f784185f94",
-      "claimed_at": "2025-09-28T10:03:16.285513+00:00",
-      "task_heartbeat": "2025-09-28T10:03:19.684896+00:00",
-      "status": "streaming"
+    "swarm_status_dashboard": {
+      "node_id": "05352024-80fd-43f4-acc3-24d203f9e674",
+      "claimed_at": "2025-09-28T10:03:55.471192+00:00",
+      "task_heartbeat": "2025-09-28T10:03:55.471192+00:00",
+      "status": "claiming"
     }
   }
 }
