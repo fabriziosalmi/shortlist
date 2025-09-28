@@ -1,40 +1,10 @@
 {
   "assignments": {
-    "youtube_video_stream": {
-      "node_id": "79eb33bb-30e2-4203-98f2-d7c86205c2e6",
-      "claimed_at": "2025-09-28T09:44:32.531857+00:00",
-      "task_heartbeat": "2025-09-28T09:44:32.531857+00:00",
-      "status": "claiming"
-    },
     "swarm_status_dashboard": {
-      "node_id": "79eb33bb-30e2-4203-98f2-d7c86205c2e6",
-      "claimed_at": "2025-09-28T09:44:35.933919+00:00",
-      "task_heartbeat": "2025-09-28T09:44:35.933919+00:00",
-      "status": "claiming"
-    },
-    "self_hosted_audio_stream": {
       "node_id": "8c8561f2-afc7-46fd-9cf0-a9a9fe802358",
-      "claimed_at": "2025-09-28T09:44:38.520955+00:00",
-      "task_heartbeat": "2025-09-28T09:44:42.809481+00:00",
-      "status": "streaming"
-    },
-    "telegram_text_posts": {
-      "node_id": "79eb33bb-30e2-4203-98f2-d7c86205c2e6",
-      "claimed_at": "2025-09-28T09:44:44.433499+00:00",
-      "task_heartbeat": "2025-09-28T09:44:47.863176+00:00",
-      "status": "streaming"
-    },
-    "shortlist_api": {
-      "node_id": "7a005b94-9db3-47be-b301-4b7d619983cd",
-      "claimed_at": "2025-09-28T09:44:52.657920+00:00",
-      "task_heartbeat": "2025-09-28T09:44:57.450317+00:00",
-      "status": "streaming"
-    },
-    "shortlist_web": {
-      "node_id": "c4f78d5d-bdad-4a44-b30e-93d99bcc6135",
-      "claimed_at": "2025-09-28T09:44:59.351461+00:00",
-      "task_heartbeat": "2025-09-28T09:45:04.793491+00:00",
-      "status": "streaming"
+      "claimed_at": "2025-09-28T09:45:48.693348+00:00",
+      "task_heartbeat": "2025-09-28T09:45:48.693348+00:00",
+      "status": "claiming"
     }
   }
 }
