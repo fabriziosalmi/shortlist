@@ -19,10 +19,10 @@
       "status": "streaming"
     },
     "shortlist_governance_api": {
-      "node_id": "41f31830-3e59-4fad-b6c2-98831af32f92",
-      "claimed_at": "2025-09-28T15:32:47.231526+00:00",
-      "task_heartbeat": "2025-09-28T15:33:23.500045+00:00",
-      "status": "streaming"
+      "node_id": "ba8d0707-8d46-400a-9f38-d5b42749fc65",
+      "claimed_at": "2025-09-28T15:36:45.268138+00:00",
+      "task_heartbeat": "2025-09-28T15:36:45.268138+00:00",
+      "status": "claiming"
     },
     "shortlist_dashboard": {
       "node_id": "41f31830-3e59-4fad-b6c2-98831af32f92",
