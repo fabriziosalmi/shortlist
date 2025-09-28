@@ -1,10 +1,10 @@
 {
   "assignments": {
-    "shortlist_api": {
-      "node_id": "96798bd0-8cfb-484c-b45e-d043c516c74c",
-      "claimed_at": "2025-09-28T10:32:39.045051+00:00",
-      "task_heartbeat": "2025-09-28T10:32:43.994130+00:00",
-      "status": "streaming"
+    "self_hosted_audio_stream": {
+      "node_id": "66260514-f433-4051-bc32-d627d7fa32f7",
+      "claimed_at": "2025-09-28T10:34:28.352055+00:00",
+      "task_heartbeat": "2025-09-28T10:34:28.352055+00:00",
+      "status": "claiming"
     }
   }
 }
