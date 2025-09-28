@@ -19,10 +19,10 @@
       "status": "streaming"
     },
     "swarm_status_dashboard": {
-      "node_id": "c6a1f48a-83c7-44f7-973c-4779a50729f0",
-      "claimed_at": "2025-09-28T09:01:33.332307+00:00",
-      "task_heartbeat": "2025-09-28T09:04:40.556967+00:00",
-      "status": "streaming"
+      "node_id": "63d7b11f-52f4-417c-9f0a-77b686c682f5",
+      "claimed_at": "2025-09-28T09:06:41.595574+00:00",
+      "task_heartbeat": "2025-09-28T09:06:41.595574+00:00",
+      "status": "claiming"
     }
   }
 }
