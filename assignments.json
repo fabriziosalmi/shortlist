@@ -23,6 +23,12 @@
       "claimed_at": "2025-09-28T09:42:58.179727+00:00",
       "task_heartbeat": "2025-09-28T09:42:58.179727+00:00",
       "status": "claiming"
+    },
+    "shortlist_api": {
+      "node_id": "725acd74-0b57-44b1-ad42-812f81fb2427",
+      "claimed_at": "2025-09-28T09:44:10.621005+00:00",
+      "task_heartbeat": "2025-09-28T09:44:10.621005+00:00",
+      "status": "claiming"
     }
   }
 }
