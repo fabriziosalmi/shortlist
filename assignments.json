@@ -3,7 +3,7 @@
     "swarm_status_dashboard": {
       "node_id": "c4f78d5d-bdad-4a44-b30e-93d99bcc6135",
       "claimed_at": "2025-09-28T09:37:36.702576+00:00",
-      "task_heartbeat": "2025-09-28T09:42:47.572709+00:00",
+      "task_heartbeat": "2025-09-28T09:43:49.022827+00:00",
       "status": "streaming"
     },
     "self_hosted_audio_stream": {
