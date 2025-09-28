@@ -46,15 +46,15 @@ Renderers are the "muscles" of the swarm. They are containerized applications (m
 - The `node.py` script orchestrates these renderers, starting and stopping their containers as needed
 - This design keeps dependencies isolated and allows for new broadcast platforms to be added easily
 
-**Currently Available Renderers:**
+**Currently Available Renderers (by priority):**
 
-- **Dashboard Renderer** (`dashboard`) - Port 8000: Real-time swarm status dashboard showing active nodes, task assignments, and system health
-- **Audio Renderer** (`audio`) - Port 8001: Text-to-Speech audio stream with web player interface
-- **Video Renderer** (`video`) - Port 8002: MP4 video generation with synchronized TTS audio and visual text display
-- **Web Renderer** (`web`) - Port 8003: Simple HTML interface displaying the shortlist content
-- **API Renderer** (`api`) - Port 8004: Governance API with tiered access control for secure shortlist management
-- **🆕 Admin UI Renderer** (`admin_ui`) - Port 8005: Control Room interface for swarm monitoring and governance interaction
-- **Text Renderer** (`text`) - Telegram bot integration for text-based social media posting
+- **🛡️ Governance API** (`api`) - Port 8004 - **Priority 0**: Secure API for shortlist management with tiered access control
+- **🎛️ Control Room** (`admin_ui`) - Port 8005 - **Priority 1**: **PRIMARY INTERFACE** - Complete monitoring, governance, and editing
+- **📊 Dashboard** (`dashboard`) - Port 8000 - **Priority 2**: Basic swarm status monitoring
+- **📱 Telegram Text** (`text`) - **Priority 3**: Social media posting via Telegram bot
+- **🎵 Audio Stream** (`audio`) - Port 8001 - **Priority 4**: Text-to-Speech audio with web player
+- **🎬 Video Stream** (`video`) - Port 8002 - **Priority 5**: MP4 video with synchronized TTS audio
+- **🌐 Web Interface** (`web`) - Port 8003 - **Priority 6**: Simple HTML content display
 
 ---
 
@@ -94,13 +94,17 @@ The Shortlist system currently includes the following working renderers:
 - **RESTful API** with FastAPI and automatic documentation
 - **Audit trail** through GitHub's built-in version control
 
-### 🎛️ Admin UI Renderer (Control Room)
-- **Comprehensive swarm monitoring** with real-time node and task status
-- **Governance API integration** with secure proxy for safe browser access
-- **Shortlist editor interface** supporting both JSON and text formats
-- **Auto-refresh functionality** with 5-second intervals for live updates
-- **Keyboard shortcuts** and user-friendly notifications
-- **Three-section design**: Swarm Status, Governance API, Shortlist Editor
+### 🎛️ Control Room (Admin UI) - **PRIMARY INTERFACE**
+- **🌐 Real-time swarm monitoring** with live node and task status updates
+- **🛡️ Governance API integration** with intelligent error handling and user-friendly status display
+- **📝 Advanced shortlist editor** supporting both JSON and line-separated text formats
+- **🔄 Auto-refresh functionality** with configurable intervals for live updates
+- **⌨️ Keyboard shortcuts** (Ctrl+R refresh, Ctrl+S save) and rich notifications
+- **📊 Smart error categorization** with helpful guidance for troubleshooting
+- **🎨 Professional UI/UX** with structured error states and actionable help text
+- **🔒 Secure proxy architecture** protecting governance API credentials from browser exposure
+- **📱 Responsive design** optimized for both desktop and mobile interfaces
+- **⚡ Performance optimized** with intelligent caching and minimal resource usage
 
 ### 📱 Text Renderer
 - **Telegram bot integration** for social media posting
@@ -119,41 +123,63 @@ cd shortlist
 python3 node.py
 ```
 
-Then open these URLs in your browser:
-- **🎛️ Control Room**: http://localhost:8005 - **START HERE!** Complete monitoring and management interface
-- Dashboard: http://localhost:8000 - Basic swarm status dashboard
-- Audio: http://localhost:8001 - Text-to-Speech audio stream
-- Video: http://localhost:8002 - MP4 video with synchronized audio
-- Web: http://localhost:8003 - Simple HTML content display
-- API Documentation: http://localhost:8004/docs - Governance API (requires setup)
+### 🎛️ **PRIMARY INTERFACE - Control Room**
+**Start here:** http://localhost:8005
 
-The system will automatically start generating content from `shortlist.json` and you can see the swarm coordination in real-time!
+The **Control Room** is your main dashboard providing:
+- 🌐 **Live swarm monitoring** with real-time node and task status
+- 🛡️ **Governance API status** with intelligent error handling
+- 📝 **Shortlist editor** with both JSON and text format support
+- 🔄 **Auto-refresh** every 5 seconds for live updates
+- ⌨️ **Keyboard shortcuts** (Ctrl+R, Ctrl+S) for power users
+
+### 📊 **Additional Interfaces**
+- **Dashboard**: http://localhost:8000 - Basic swarm status monitoring
+- **Audio Stream**: http://localhost:8001 - Text-to-Speech audio with web player
+- **Video Stream**: http://localhost:8002 - MP4 video with synchronized audio
+- **Web Interface**: http://localhost:8003 - Simple HTML content display
+- **API Documentation**: http://localhost:8004/docs - Governance API (requires environment setup)
+
+The system will automatically start generating content from `shortlist.json` and you can monitor the entire swarm coordination in real-time through the Control Room!
 
 ## 🎛️ Control Room - Primary Interface
 
-The **Control Room** (port 8005) is your main dashboard for monitoring and managing the entire Shortlist system. It provides:
+The **Control Room** (port 8005) is your main dashboard for monitoring and managing the entire Shortlist system. It provides a **professional, user-friendly interface** with advanced error handling and real-time updates.
 
-### **Three Main Sections:**
+### **📋 Three Main Sections:**
 1. **🌐 Swarm Status** - Real-time monitoring of all nodes and task assignments with health indicators
-2. **🛡️ Governance API** - Integration status and secure proxy for content management
+2. **🛡️ Governance API** - Integration status with intelligent error categorization and helpful guidance
 3. **📝 Shortlist Editor** - Live editing interface supporting both JSON and line-separated formats
 
-### **Key Features:**
-- **Auto-refresh** every 5 seconds for live updates
-- **Keyboard shortcuts** (Ctrl+R refresh, Ctrl+S save)
-- **Secure proxy** pattern protecting governance API credentials
-- **Real-time statistics** showing alive nodes and healthy tasks
-- **Task priority display** showing current coordination status
+### **✨ Advanced Features:**
+- **🔄 Smart auto-refresh** with configurable intervals (5-60 seconds)
+- **⌨️ Keyboard shortcuts** (Ctrl+R refresh, Ctrl+S save, Escape cancel)
+- **🔒 Secure proxy architecture** protecting governance API credentials from browser exposure
+- **📊 Real-time statistics** showing alive nodes, healthy tasks, and system performance
+- **🎨 Professional error handling** with structured, user-friendly error states
+- **💡 Contextual help** with actionable guidance for resolving issues
+- **📱 Responsive design** optimized for desktop and mobile devices
+- **⚡ Performance optimization** with intelligent caching and minimal resource usage
 
-### **Task Priority System:**
+### **🛡️ Enhanced Governance API Integration:**
+The Control Room now provides **intelligent error categorization** for governance API issues:
+
+- **🚫 Task not assigned** - Clear guidance when no node has claimed the task
+- **⏰ Stale assignment** - Detection of inactive nodes with expired heartbeats
+- **🔌 Service not running** - User-friendly explanation when containers aren't active
+- **🌐 Connection issues** - Helpful troubleshooting for network problems
+- **⏱️ Service timeouts** - Clear indication of unresponsive services
+- **💡 Setup guidance** - Step-by-step instructions for enabling governance features
+
+### **📊 Task Priority System:**
 The swarm coordinates tasks based on priority (0 = highest):
-1. **Priority 0**: Governance API - Core content management
-2. **Priority 1**: Control Room - Main monitoring interface
-3. **Priority 2**: Dashboard - Basic status monitoring
-4. **Priority 3**: Telegram Text - Primary broadcasting
-5. **Priority 4**: Audio - TTS content generation
-6. **Priority 5**: Video - Video content with synchronized audio
-7. **Priority 6**: Web - Simple HTML interface
+0. **🛡️ Governance API** - Secure content management infrastructure
+1. **🎛️ Control Room** - Primary monitoring and management interface
+2. **📊 Dashboard** - Basic status monitoring
+3. **📱 Telegram Text** - Social media broadcasting
+4. **🎵 Audio Stream** - TTS content generation
+5. **🎬 Video Stream** - Video content with synchronized audio
+6. **🌐 Web Interface** - Simple HTML content display
 
 ---
 
@@ -213,14 +239,29 @@ export TELEGRAM_CHAT_ID="@your_channel_name"
 python3 node.py
 ```
 
-**Example: Enabling the Governance API**
+**🛡️ Enabling the Governance API**
+
+For **demo/testing** (limited functionality):
 ```bash
-export GIT_AUTH_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
-export GITHUB_REPO="your-username/shortlist"
-export MAINTAINER_API_TOKEN="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-export CONTRIBUTOR_API_TOKEN="yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
+export GIT_AUTH_TOKEN="test-token"
+export GITHUB_REPO="your-username/your-repo"
+export MAINTAINER_API_TOKEN="test-maintainer-123"
+export CONTRIBUTOR_API_TOKEN="test-contributor-456"
 python3 node.py
 ```
+
+For **production** (full functionality):
+```bash
+export GIT_AUTH_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"  # GitHub Personal Access Token
+export GITHUB_REPO="your-username/shortlist"      # Your repository
+export MAINTAINER_API_TOKEN="$(uuidgen)"          # Generate unique token
+export CONTRIBUTOR_API_TOKEN="$(uuidgen)"         # Generate unique token
+python3 node.py
+```
+
+**✅ What you'll see in the Control Room:**
+- **Demo mode**: Status endpoints work, API operations show friendly errors
+- **Production mode**: Full governance functionality with GitHub integration
 
 > 📖 **For complete Governance API setup instructions, see [GOVERNANCE_SETUP.md](GOVERNANCE_SETUP.md)**
 
