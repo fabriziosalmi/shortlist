@@ -246,7 +246,7 @@ class Node:
             elif task_type == 'admin_ui':
                 port_mapping = ['-p', '8005:8000']
                 volumes += [
-                    '-v', f'{os.path.abspath("./output")}:/app/data',
+                    '-v', f'{os.path.abspath(".")}:/app/data',
                 ]
 
             # Start the renderer container

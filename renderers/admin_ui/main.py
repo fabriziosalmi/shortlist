@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Flask, render_template, request, jsonify
 
 # Configure logging
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Configuration
-API_CONTAINER_NAME = os.getenv("API_CONTAINER_NAME", "shortlist_api_renderer")
+API_CONTAINER_NAME = os.getenv("API_CONTAINER_NAME", "shortlist_governance_api")
 API_URL = f"http://{API_CONTAINER_NAME}:8000"
 SHORTLIST_FILE = "/app/data/shortlist.json"
 ROSTER_FILE = "/app/data/roster.json"
@@ -58,7 +58,7 @@ def get_swarm_status():
 
         # Process roster data
         nodes = []
-        current_time = datetime.utcnow()
+        current_time = datetime.utcnow().replace(tzinfo=timezone.utc)
 
         for node in roster.get("nodes", []):
             try:
@@ -242,7 +242,7 @@ def health_check():
     """Health check endpoint"""
     return jsonify({
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.utcnow().replace(tzinfo=timezone.utc).isoformat(),
         "service": "shortlist-admin-ui"
     })
 

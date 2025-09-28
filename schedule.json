@@ -1,7 +1,11 @@
 {
   "tasks": [
-    { "id": "telegram_text_posts", "type": "text", "priority": 0 },
-    { "id": "shortlist_video", "type": "video", "priority": 1 },
-    { "id": "shortlist_admin_ui", "type": "admin_ui", "priority": 2 }
+    { "id": "shortlist_governance_api", "type": "api", "priority": 0 },
+    { "id": "shortlist_admin_ui", "type": "admin_ui", "priority": 1 },
+    { "id": "shortlist_dashboard", "type": "dashboard", "priority": 2 },
+    { "id": "telegram_text_posts", "type": "text", "priority": 3 },
+    { "id": "shortlist_audio", "type": "audio", "priority": 4 },
+    { "id": "shortlist_video", "type": "video", "priority": 5 },
+    { "id": "shortlist_web", "type": "web", "priority": 6 }
   ]
 }
