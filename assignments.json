@@ -1,10 +1,10 @@
 {
   "assignments": {
     "swarm_status_dashboard": {
-      "node_id": "12ad7f0c-739e-4f5f-9841-b276d55b1dee",
-      "claimed_at": "2025-09-28T09:11:40.602856+00:00",
-      "task_heartbeat": "2025-09-28T09:12:45.187458+00:00",
-      "status": "streaming"
+      "node_id": "ed47ce6f-a316-41be-9f55-abe30a763c57",
+      "claimed_at": "2025-09-28T09:13:44.238217+00:00",
+      "task_heartbeat": "2025-09-28T09:13:44.238217+00:00",
+      "status": "claiming"
     }
   }
 }
