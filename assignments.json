@@ -37,10 +37,10 @@
       "status": "claiming"
     },
     "shortlist_governance_api": {
-      "node_id": "d703e327-1eb4-4671-9916-ea1628dc64c0",
-      "claimed_at": "2025-09-28T15:53:43.038555+00:00",
-      "task_heartbeat": "2025-09-28T15:53:46.175043+00:00",
-      "status": "streaming"
+      "node_id": "addc7d77-c468-4839-92b6-564938ee0ade",
+      "claimed_at": "2025-09-28T16:02:39.402131+00:00",
+      "task_heartbeat": "2025-09-28T16:02:39.402131+00:00",
+      "status": "claiming"
     }
   }
 }
