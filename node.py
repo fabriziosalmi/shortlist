@@ -224,6 +224,9 @@ class Node:
             port_mapping = []
             if task_type == 'audio':
                 port_mapping = ['-p', '8001:8000']
+                volumes += [
+                    '-v', f'{os.path.abspath("./output")}:/app/output',
+                ]
             elif task_type == 'dashboard':
                 port_mapping = ['-p', '8000:8000']
             elif task_type == 'api':
