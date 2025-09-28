@@ -1,28 +1,10 @@
 {
   "assignments": {
-    "swarm_status_dashboard": {
-      "node_id": "58fa609a-25a4-4d7a-826b-cadaa7df1662",
-      "claimed_at": "2025-09-28T09:33:24.794832+00:00",
-      "task_heartbeat": "2025-09-28T09:33:28.297479+00:00",
-      "status": "streaming"
-    },
     "youtube_video_stream": {
       "node_id": "7ce81110-18c9-44e9-bea6-db574a1ed27b",
-      "claimed_at": "2025-09-28T09:31:45.956004+00:00",
-      "task_heartbeat": "2025-09-28T09:31:45.956004+00:00",
+      "claimed_at": "2025-09-28T09:33:32.398833+00:00",
+      "task_heartbeat": "2025-09-28T09:33:32.398833+00:00",
       "status": "claiming"
-    },
-    "self_hosted_audio_stream": {
-      "node_id": "7ce81110-18c9-44e9-bea6-db574a1ed27b",
-      "claimed_at": "2025-09-28T09:31:49.610788+00:00",
-      "task_heartbeat": "2025-09-28T09:31:52.300153+00:00",
-      "status": "streaming"
-    },
-    "telegram_text_posts": {
-      "node_id": "e3a1e4f2-033d-44b4-afb2-58faad3d011c",
-      "claimed_at": "2025-09-28T09:32:30.202907+00:00",
-      "task_heartbeat": "2025-09-28T09:32:33.262631+00:00",
-      "status": "streaming"
     }
   }
 }
