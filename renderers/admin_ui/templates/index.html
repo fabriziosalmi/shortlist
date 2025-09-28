@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎛️ Shortlist Control Room</title>
+    <style>
+        /* Modern, clean CSS styling */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #2d3748;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-gap: 2rem;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        .section-header {
+            background: #f8fafc;
+            padding: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .section-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .section-content {
+            padding: 1.5rem;
+        }
+
+        .editor-section {
+            grid-column: 1 / -1;
+        }
+
+        /* Status indicators */
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-dot.alive { background: #48bb78; }
+        .status-dot.dead { background: #f56565; }
+        .status-dot.healthy { background: #48bb78; }
+        .status-dot.unhealthy { background: #ed8936; }
+
+        /* Tables */
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .table th,
+        .table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.875rem;
+        }
+
+        .table th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        /* Stats cards */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2d3748;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Editor */
+        .editor-container {
+            position: relative;
+        }
+
+        #shortlist-editor {
+            width: 100%;
+            min-height: 300px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem;
+            resize: vertical;
+            background: #f8fafc;
+            color: #2d3748;
+        }
+
+        #shortlist-editor:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-warning {
+            background: #ed8936;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #dd6b20;
+        }
+
+        /* Form elements */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Response log */
+        .response-log {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.875rem;
+            min-height: 100px;
+            overflow-x: auto;
+            margin-top: 1rem;
+            white-space: pre-wrap;
+            border: 1px solid #2d3748;
+        }
+
+        /* Loading states */
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+
+        /* Utility classes */
+        .text-center { text-align: center; }
+        .text-small { font-size: 0.875rem; }
+        .text-muted { color: #718096; }
+        .mb-1 { margin-bottom: 0.5rem; }
+        .mb-2 { margin-bottom: 1rem; }
+        .flex { display: flex; }
+        .flex-between { justify-content: space-between; }
+        .flex-center { justify-content: center; }
+        .gap-1 { gap: 0.5rem; }
+        .gap-2 { gap: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎛️ Shortlist Control Room</h1>
+        <p>Monitor your decentralized swarm and manage content securely</p>
+    </div>
+
+    <div class="container">
+        <!-- Section 1: Swarm Status -->
+        <div class="section">
+            <div class="section-header">
+                <h2>📊 Swarm Status</h2>
+                <button id="refresh-status-btn" class="btn btn-secondary">
+                    <span id="status-spinner" class="spinner" style="display: none;"></span>
+                    🔄 Refresh
+                </button>
+            </div>
+            <div class="section-content">
+                <div class="stats" id="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-nodes">-</div>
+                        <div class="stat-label">Total Nodes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="alive-nodes">-</div>
+                        <div class="stat-label">Alive Nodes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-tasks">-</div>
+                        <div class="stat-label">Total Tasks</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="healthy-tasks">-</div>
+                        <div class="stat-label">Healthy Tasks</div>
+                    </div>
+                </div>
+
+                <h3 class="mb-1">Active Nodes</h3>
+                <div id="nodes-container">
+                    <table class="table" id="nodes-table">
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Node ID</th>
+                                <th>Last Seen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="nodes-tbody">
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 class="mb-1" style="margin-top: 1.5rem;">Task Assignments</h3>
+                <div id="tasks-container">
+                    <table class="table" id="tasks-table">
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Task ID</th>
+                                <th>Node</th>
+                                <th>Last Heartbeat</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tasks-tbody">
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Governance API Status -->
+        <div class="section">
+            <div class="section-header">
+                <h2>🛡️ Governance API</h2>
+                <button id="refresh-governance-btn" class="btn btn-secondary">
+                    <span id="governance-spinner" class="spinner" style="display: none;"></span>
+                    🔄 Check
+                </button>
+            </div>
+            <div class="section-content">
+                <div id="governance-status" class="text-center text-muted">
+                    Checking API availability...
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Shortlist Editor (Full Width) -->
+        <div class="section editor-section">
+            <div class="section-header">
+                <h2>📝 Shortlist Editor</h2>
+                <div class="flex gap-1">
+                    <button id="refresh-content-btn" class="btn btn-secondary">
+                        <span id="content-spinner" class="spinner" style="display: none;"></span>
+                        🔄 Refresh Content
+                    </button>
+                    <button id="format-json-btn" class="btn btn-secondary">
+                        ✨ Format JSON
+                    </button>
+                </div>
+            </div>
+            <div class="section-content">
+                <div class="editor-container">
+                    <textarea
+                        id="shortlist-editor"
+                        placeholder="Loading shortlist content..."
+                        spellcheck="false"
+                    ></textarea>
+                </div>
+
+                <div style="margin-top: 1.5rem;">
+                    <h3 class="mb-1">🎯 Actions</h3>
+
+                    <div class="form-group">
+                        <label for="api-token" class="form-label">
+                            🔑 API Token (Maintainer or Contributor)
+                        </label>
+                        <input
+                            type="password"
+                            id="api-token"
+                            class="form-input"
+                            placeholder="Enter your API token here..."
+                        >
+                        <small class="text-muted">
+                            Token is not stored - re-enter each session for security
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="proposal-description" class="form-label">
+                            📄 Proposal Description (for Contributors)
+                        </label>
+                        <input
+                            type="text"
+                            id="proposal-description"
+                            class="form-input"
+                            placeholder="Describe your changes..."
+                            value="Updated via Shortlist Control Room"
+                        >
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button id="propose-btn" class="btn btn-warning">
+                            <span id="propose-spinner" class="spinner" style="display: none;"></span>
+                            📝 Propose Change (Pull Request)
+                        </button>
+                        <button id="apply-btn" class="btn btn-success">
+                            <span id="apply-spinner" class="spinner" style="display: none;"></span>
+                            ⚡ Apply Direct Change (Admin)
+                        </button>
+                    </div>
+
+                    <div class="response-log" id="response-log">
+Ready to execute commands...
+
+💡 Tips:
+- Use "Propose Change" for contributor-level access (creates PR for review)
+- Use "Apply Direct Change" for maintainer-level access (immediate merge)
+- Content can be JSON format or line-separated text
+- Refresh content to see latest changes from Git
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 🎛️ Shortlist Control Room JavaScript
+        console.log('🎛️ Shortlist Control Room loaded');
+
+        // DOM elements
+        const elements = {
+            // Status section
+            refreshStatusBtn: document.getElementById('refresh-status-btn'),
+            statusSpinner: document.getElementById('status-spinner'),
+            totalNodes: document.getElementById('total-nodes'),
+            aliveNodes: document.getElementById('alive-nodes'),
+            totalTasks: document.getElementById('total-tasks'),
+            healthyTasks: document.getElementById('healthy-tasks'),
+            nodesTbody: document.getElementById('nodes-tbody'),
+            tasksTbody: document.getElementById('tasks-tbody'),
+
+            // Governance section
+            refreshGovernanceBtn: document.getElementById('refresh-governance-btn'),
+            governanceSpinner: document.getElementById('governance-spinner'),
+            governanceStatus: document.getElementById('governance-status'),
+
+            // Editor section
+            refreshContentBtn: document.getElementById('refresh-content-btn'),
+            contentSpinner: document.getElementById('content-spinner'),
+            formatJsonBtn: document.getElementById('format-json-btn'),
+            shortlistEditor: document.getElementById('shortlist-editor'),
+            apiToken: document.getElementById('api-token'),
+            proposalDescription: document.getElementById('proposal-description'),
+            proposeBtn: document.getElementById('propose-btn'),
+            proposeSpinner: document.getElementById('propose-spinner'),
+            applyBtn: document.getElementById('apply-btn'),
+            applySpinner: document.getElementById('apply-spinner'),
+            responseLog: document.getElementById('response-log')
+        };
+
+        // Utility functions
+        function showSpinner(spinner) {
+            spinner.style.display = 'inline-block';
+        }
+
+        function hideSpinner(spinner) {
+            spinner.style.display = 'none';
+        }
+
+        function logMessage(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : '🔵';
+            elements.responseLog.textContent = `[${timestamp}] ${prefix} ${message}\n\n${elements.responseLog.textContent}`;
+        }
+
+        function logJson(data, prefix = '') {
+            const timestamp = new Date().toLocaleTimeString();
+            elements.responseLog.textContent = `[${timestamp}] ${prefix}\n${JSON.stringify(data, null, 2)}\n\n${elements.responseLog.textContent}`;
+        }
+
+        // API functions
+        async function fetchSwarmStatus() {
+            showSpinner(elements.statusSpinner);
+            try {
+                const response = await fetch('/api/swarm-status');
+                const data = await response.json();
+
+                if (response.ok) {
+                    updateSwarmStatusUI(data);
+                    logMessage('Swarm status updated', 'success');
+                } else {
+                    throw new Error(data.error || 'Failed to fetch swarm status');
+                }
+            } catch (error) {
+                logMessage(`Error fetching swarm status: ${error.message}`, 'error');
+                console.error('Swarm status error:', error);
+            } finally {
+                hideSpinner(elements.statusSpinner);
+            }
+        }
+
+        async function fetchGovernanceStatus() {
+            showSpinner(elements.governanceSpinner);
+            try {
+                const response = await fetch('/api/governance-status');
+                const data = await response.json();
+
+                updateGovernanceStatusUI(data);
+                logMessage('Governance API status checked', 'success');
+            } catch (error) {
+                elements.governanceStatus.innerHTML = `
+                    <div style="color: #f56565;">
+                        ❌ Connection Error<br>
+                        <small>${error.message}</small>
+                    </div>
+                `;
+                logMessage(`Error checking governance API: ${error.message}`, 'error');
+            } finally {
+                hideSpinner(elements.governanceSpinner);
+            }
+        }
+
+        async function fetchShortlistContent() {
+            showSpinner(elements.contentSpinner);
+            try {
+                const response = await fetch('/api/shortlist-content');
+                const data = await response.json();
+
+                if (response.ok) {
+                    elements.shortlistEditor.value = data.content;
+                    logMessage('Shortlist content loaded', 'success');
+                } else {
+                    throw new Error(data.error || 'Failed to fetch shortlist content');
+                }
+            } catch (error) {
+                logMessage(`Error fetching shortlist content: ${error.message}`, 'error');
+            } finally {
+                hideSpinner(elements.contentSpinner);
+            }
+        }
+
+        async function proposeChange() {
+            const token = elements.apiToken.value.trim();
+            const content = elements.shortlistEditor.value.trim();
+            const description = elements.proposalDescription.value.trim();
+
+            if (!token) {
+                logMessage('Please enter your API token', 'error');
+                return;
+            }
+
+            if (!content) {
+                logMessage('Please enter content in the editor', 'error');
+                return;
+            }
+
+            showSpinner(elements.proposeSpinner);
+            elements.proposeBtn.disabled = true;
+
+            try {
+                const response = await fetch('/ui/propose', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        token: token,
+                        content: content,
+                        description: description
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    logMessage(`Proposal created successfully! PR: ${data.pull_request_url}`, 'success');
+                    logJson(data, '📝 Proposal Response:');
+                } else {
+                    throw new Error(data.error || `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                logMessage(`Proposal failed: ${error.message}`, 'error');
+            } finally {
+                hideSpinner(elements.proposeSpinner);
+                elements.proposeBtn.disabled = false;
+            }
+        }
+
+        async function applyChange() {
+            const token = elements.apiToken.value.trim();
+            const content = elements.shortlistEditor.value.trim();
+
+            if (!token) {
+                logMessage('Please enter your API token', 'error');
+                return;
+            }
+
+            if (!content) {
+                logMessage('Please enter content in the editor', 'error');
+                return;
+            }
+
+            if (!confirm('⚠️ This will immediately apply changes to the shortlist. Are you sure?')) {
+                return;
+            }
+
+            showSpinner(elements.applySpinner);
+            elements.applyBtn.disabled = true;
+
+            try {
+                const response = await fetch('/ui/apply', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        token: token,
+                        content: content
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    logMessage(`Changes applied successfully! Merged: ${data.merge_sha}`, 'success');
+                    logJson(data, '⚡ Apply Response:');
+                    // Refresh content after successful apply
+                    setTimeout(fetchShortlistContent, 2000);
+                } else {
+                    throw new Error(data.error || `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                logMessage(`Apply failed: ${error.message}`, 'error');
+            } finally {
+                hideSpinner(elements.applySpinner);
+                elements.applyBtn.disabled = false;
+            }
+        }
+
+        function formatJson() {
+            try {
+                const content = elements.shortlistEditor.value.trim();
+                const parsed = JSON.parse(content);
+                elements.shortlistEditor.value = JSON.stringify(parsed, null, 2);
+                logMessage('JSON formatted successfully', 'success');
+            } catch (error) {
+                logMessage(`JSON format error: ${error.message}`, 'error');
+            }
+        }
+
+        // UI update functions
+        function updateSwarmStatusUI(data) {
+            // Update stats
+            elements.totalNodes.textContent = data.stats.total_nodes;
+            elements.aliveNodes.textContent = data.stats.alive_nodes;
+            elements.totalTasks.textContent = data.stats.total_tasks;
+            elements.healthyTasks.textContent = data.stats.healthy_tasks;
+
+            // Update nodes table
+            elements.nodesTbody.innerHTML = '';
+            if (data.nodes.length === 0) {
+                elements.nodesTbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No nodes found</td></tr>';
+            } else {
+                data.nodes.forEach(node => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>
+                            <span class="status-dot ${node.is_alive ? 'alive' : 'dead'}"></span>
+                            ${node.is_alive ? 'Alive' : 'Offline'}
+                        </td>
+                        <td title="${node.full_id}">${node.id}</td>
+                        <td class="text-small">${node.time_since_last_seen}</td>
+                    `;
+                    elements.nodesTbody.appendChild(row);
+                });
+            }
+
+            // Update tasks table
+            elements.tasksTbody.innerHTML = '';
+            if (data.tasks.length === 0) {
+                elements.tasksTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No tasks assigned</td></tr>';
+            } else {
+                data.tasks.forEach(task => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>
+                            <span class="status-dot ${task.is_healthy ? 'healthy' : 'unhealthy'}"></span>
+                            ${task.status}
+                        </td>
+                        <td>${task.task_id}</td>
+                        <td title="${task.full_node_id}">${task.node_id}</td>
+                        <td class="text-small">${task.time_since_heartbeat}</td>
+                    `;
+                    elements.tasksTbody.appendChild(row);
+                });
+            }
+        }
+
+        function updateGovernanceStatusUI(data) {
+            if (data.available) {
+                const status = data.status;
+                elements.governanceStatus.innerHTML = `
+                    <div style="color: #48bb78; margin-bottom: 1rem;">
+                        ✅ Governance API Available
+                    </div>
+                    <div class="stats" style="margin: 0;">
+                        <div class="stat-card">
+                            <div class="stat-number">${status.maintainer_auth_configured ? '✅' : '❌'}</div>
+                            <div class="stat-label">Maintainer Auth</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${status.contributor_auth_configured ? '✅' : '❌'}</div>
+                            <div class="stat-label">Contributor Auth</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${status.git_auth_configured ? '✅' : '❌'}</div>
+                            <div class="stat-label">Git Auth</div>
+                        </div>
+                    </div>
+                    <div class="text-small text-muted" style="margin-top: 1rem;">
+                        Repository: ${status.github_repo}
+                    </div>
+                `;
+            } else {
+                elements.governanceStatus.innerHTML = `
+                    <div style="color: #f56565;">
+                        ❌ Governance API Unavailable<br>
+                        <small class="text-muted">${data.error}</small>
+                    </div>
+                `;
+            }
+        }
+
+        // Event listeners
+        elements.refreshStatusBtn.addEventListener('click', fetchSwarmStatus);
+        elements.refreshGovernanceBtn.addEventListener('click', fetchGovernanceStatus);
+        elements.refreshContentBtn.addEventListener('click', fetchShortlistContent);
+        elements.formatJsonBtn.addEventListener('click', formatJson);
+        elements.proposeBtn.addEventListener('click', proposeChange);
+        elements.applyBtn.addEventListener('click', applyChange);
+
+        // Auto-refresh functionality
+        function startAutoRefresh() {
+            // Refresh swarm status every 30 seconds
+            setInterval(fetchSwarmStatus, 30000);
+
+            // Refresh governance status every 60 seconds
+            setInterval(fetchGovernanceStatus, 60000);
+        }
+
+        // Initialize the application
+        async function initialize() {
+            logMessage('Initializing Shortlist Control Room...', 'info');
+
+            // Load initial data
+            await Promise.all([
+                fetchSwarmStatus(),
+                fetchGovernanceStatus(),
+                fetchShortlistContent()
+            ]);
+
+            // Start auto-refresh
+            startAutoRefresh();
+
+            logMessage('Control Room ready! 🎛️', 'success');
+        }
+
+        // Start the application when DOM is loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initialize);
+        } else {
+            initialize();
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl/Cmd + Enter to apply changes (if token is entered)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                if (elements.apiToken.value.trim()) {
+                    if (e.shiftKey) {
+                        proposeChange();
+                    } else {
+                        applyChange();
+                    }
+                }
+            }
+
+            // Ctrl/Cmd + R to refresh content
+            if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                e.preventDefault();
+                fetchShortlistContent();
+            }
+        });
+
+        // Add tooltip for keyboard shortcuts
+        elements.responseLog.title = `
+Keyboard Shortcuts:
+• Ctrl/Cmd + Enter: Apply Direct Change
+• Ctrl/Cmd + Shift + Enter: Propose Change
+• Ctrl/Cmd + R: Refresh Content
+        `.trim();
+    </script>
+</body>
+</html>

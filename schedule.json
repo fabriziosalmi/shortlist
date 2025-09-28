@@ -1,6 +1,7 @@
 {
   "tasks": [
     { "id": "telegram_text_posts", "type": "text", "priority": 0 },
-    { "id": "shortlist_video", "type": "video", "priority": 1 }
+    { "id": "shortlist_video", "type": "video", "priority": 1 },
+    { "id": "shortlist_admin_ui", "type": "admin_ui", "priority": 2 }
   ]
 }

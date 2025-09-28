@@ -52,7 +52,8 @@ Renderers are the "muscles" of the swarm. They are containerized applications (m
 - **Audio Renderer** (`audio`) - Port 8001: Text-to-Speech audio stream with web player interface
 - **Video Renderer** (`video`) - Port 8002: MP4 video generation with synchronized TTS audio and visual text display
 - **Web Renderer** (`web`) - Port 8003: Simple HTML interface displaying the shortlist content
-- **🆕 API Renderer** (`api`) - Port 8004: Governance API with tiered access control for secure shortlist management
+- **API Renderer** (`api`) - Port 8004: Governance API with tiered access control for secure shortlist management
+- **🆕 Admin UI Renderer** (`admin_ui`) - Port 8005: Control Room interface for swarm monitoring and governance interaction
 - **Text Renderer** (`text`) - Telegram bot integration for text-based social media posting
 
 ---
@@ -93,6 +94,14 @@ The Shortlist system currently includes the following working renderers:
 - **RESTful API** with FastAPI and automatic documentation
 - **Audit trail** through GitHub's built-in version control
 
+### 🎛️ Admin UI Renderer (Control Room)
+- **Comprehensive swarm monitoring** with real-time node and task status
+- **Governance API integration** with secure proxy for safe browser access
+- **Shortlist editor interface** supporting both JSON and text formats
+- **Auto-refresh functionality** with 5-second intervals for live updates
+- **Keyboard shortcuts** and user-friendly notifications
+- **Three-section design**: Swarm Status, Governance API, Shortlist Editor
+
 ### 📱 Text Renderer
 - **Telegram bot integration** for social media posting
 - **Automatic content broadcasting** to configured channels
@@ -116,6 +125,7 @@ Then open these URLs in your browser:
 - Video: http://localhost:8002
 - Web: http://localhost:8003
 - API Documentation: http://localhost:8004/docs (requires setup)
+- **Control Room**: http://localhost:8005 (comprehensive monitoring and management)
 
 The system will automatically start generating content from `shortlist.json` and you can see the swarm coordination in real-time!
 
@@ -164,6 +174,7 @@ Once a node is running, you can access the different interfaces:
 - **Video Stream**: http://localhost:8002 - Watch video with synchronized audio and text
 - **Web Interface**: http://localhost:8003 - View shortlist in simple HTML format
 - **Governance API**: http://localhost:8004 - Secure API for content management (requires setup)
+- **🎛️ Control Room**: http://localhost:8005 - Comprehensive admin interface for monitoring and management
 
 #### 4. Enable External Integrations (Optional)
 

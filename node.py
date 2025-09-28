@@ -228,23 +228,23 @@ class Node:
                 ]
             elif task_type == 'dashboard':
                 port_mapping = ['-p', '8000:8000']
-            elif task_type == 'api':
+            elif task_type == 'video':
                 port_mapping = ['-p', '8002:8000']
                 volumes += [
-                    '-v', f'{os.path.abspath("./output")}:/app/data',
+                    '-v', f'{os.path.abspath("./output")}:/app/output',
                 ]
             elif task_type == 'web':
                 port_mapping = ['-p', '8003:8000']
                 volumes += [
                     '-v', f'{os.path.abspath("./output")}:/app/data',
                 ]
-            elif task_type == 'video':
-                port_mapping = ['-p', '8002:8000']
-                volumes += [
-                    '-v', f'{os.path.abspath("./output")}:/app/output',
-                ]
             elif task_type == 'api':
                 port_mapping = ['-p', '8004:8000']
+                volumes += [
+                    '-v', f'{os.path.abspath("./output")}:/app/data',
+                ]
+            elif task_type == 'admin_ui':
+                port_mapping = ['-p', '8005:8000']
                 volumes += [
                     '-v', f'{os.path.abspath("./output")}:/app/data',
                 ]
