@@ -3,8 +3,8 @@
     "telegram_text_posts": {
       "node_id": "09a5e02c-a185-4f49-96aa-78b0aa967f99",
       "claimed_at": "2025-09-28T10:32:13.266614+00:00",
-      "task_heartbeat": "2025-09-28T10:32:13.266614+00:00",
-      "status": "claiming"
+      "task_heartbeat": "2025-09-28T10:32:23.214220+00:00",
+      "status": "streaming"
     }
   }
 }
