@@ -4,6 +4,7 @@ import uuid
 import time
 import subprocess
 import random
+import psutil
 from datetime import datetime, timezone, timedelta
 
 # --- Configuration ---
@@ -327,21 +328,44 @@ class Node:
         try:
             git_pull()
             roster = read_json_file(ROSTER_FILE) or {"nodes": []}
+
+            # Collect system metrics
+            try:
+                cpu_load = psutil.cpu_percent(interval=1)
+                memory_percent = psutil.virtual_memory().percent
+                metrics = {
+                    "cpu_load": round(cpu_load, 1),
+                    "memory_percent": round(memory_percent, 1)
+                }
+                print(f"    - System metrics: CPU {cpu_load}%, Memory {memory_percent}%")
+            except Exception as e:
+                print(f"    - ⚠️ Could not collect metrics: {e}")
+                metrics = {
+                    "cpu_load": 0.0,
+                    "memory_percent": 0.0
+                }
+
             node_found = False
+            current_time = datetime.now(timezone.utc).isoformat()
+
             for node in roster["nodes"]:
                 if node["id"] == self.node_id:
-                    node["last_seen"] = datetime.now(timezone.utc).isoformat()
+                    node["last_seen"] = current_time
+                    node["metrics"] = metrics
                     node_found = True
                     break
+
             if not node_found:
                 roster["nodes"].append({
                     "id": self.node_id,
-                    "started_at": datetime.now(timezone.utc).isoformat(),
-                    "last_seen": datetime.now(timezone.utc).isoformat()
+                    "started_at": current_time,
+                    "last_seen": current_time,
+                    "metrics": metrics
                 })
+
             with open(ROSTER_FILE, 'w') as f:
                 json.dump(roster, f, indent=2)
-            
+
             commit_message = f"chore(roster): heartbeat from node {self.node_id[:8]}"
             commit_and_push([ROSTER_FILE], commit_message)
             self.last_roster_heartbeat = datetime.now(timezone.utc)

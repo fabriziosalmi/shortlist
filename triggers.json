@@ -1,0 +1,65 @@
+{
+  "rules": [
+    {
+      "id": "scale_up_video_renderers_on_weekend",
+      "description": "Add extra video renderer during weekend peak hours",
+      "condition": {
+        "type": "time_based",
+        "weekday": [5, 6],
+        "hour_range": [14, 22]
+      },
+      "action": {
+        "type": "add_task",
+        "task": {
+          "id": "shortlist_video_weekend",
+          "type": "video",
+          "priority": 5
+        }
+      }
+    },
+    {
+      "id": "emergency_audio_broadcast_on_high_cpu",
+      "description": "Boost audio renderer priority when swarm CPU is high",
+      "condition": {
+        "type": "swarm_metric_agg",
+        "metric": "cpu_load",
+        "aggregate": "average",
+        "operator": ">=",
+        "threshold": 80.0
+      },
+      "action": {
+        "type": "change_priority",
+        "task_id": "shortlist_audio",
+        "priority": 2
+      }
+    },
+    {
+      "id": "scale_down_on_low_memory",
+      "description": "Remove non-essential tasks when memory is low",
+      "condition": {
+        "type": "swarm_metric_agg",
+        "metric": "memory_percent",
+        "aggregate": "max",
+        "operator": ">=",
+        "threshold": 90.0
+      },
+      "action": {
+        "type": "remove_task",
+        "task_id": "shortlist_video_weekend"
+      }
+    },
+    {
+      "id": "night_mode_priority_shift",
+      "description": "Lower video priority during night hours to save resources",
+      "condition": {
+        "type": "time_based",
+        "hour_range": [23, 5]
+      },
+      "action": {
+        "type": "change_priority",
+        "task_id": "shortlist_video",
+        "priority": 7
+      }
+    }
+  ]
+}
