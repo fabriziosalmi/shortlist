@@ -2,8 +2,8 @@
   "assignments": {
     "youtube_video_stream": {
       "node_id": "b48c71e2-9bb8-4fcb-9a94-0ce01485a8f0",
-      "claimed_at": "2025-09-28T09:08:50.020485+00:00",
-      "task_heartbeat": "2025-09-28T09:08:50.020485+00:00",
+      "claimed_at": "2025-09-28T09:10:40.822930+00:00",
+      "task_heartbeat": "2025-09-28T09:10:40.822930+00:00",
       "status": "claiming"
     },
     "self_hosted_audio_stream": {
