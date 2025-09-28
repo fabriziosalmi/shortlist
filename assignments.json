@@ -7,9 +7,9 @@
       "status": "streaming"
     },
     "shortlist_video": {
-      "node_id": "b4b665d7-c533-4cc4-9b9c-949282c88429",
-      "claimed_at": "2025-09-28T12:40:02.453855+00:00",
-      "task_heartbeat": "2025-09-28T12:40:02.453855+00:00",
+      "node_id": "ba8d0707-8d46-400a-9f38-d5b42749fc65",
+      "claimed_at": "2025-09-28T13:23:27.976469+00:00",
+      "task_heartbeat": "2025-09-28T13:23:27.976469+00:00",
       "status": "claiming"
     },
     "shortlist_admin_ui": {
