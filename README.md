@@ -25,7 +25,7 @@ The entire state of the swarm is defined by a few JSON files in this repository:
 
 - `shortlist.json`: The content to be broadcast. This is the only file you should manually edit.
 - `roster.json`: A list of all active nodes in the swarm. Each node maintains its own entry with a periodic "heartbeat".
-- `schedule.json`: Defines the broadcasting "tasks" that the swarm needs to perform (e.g., text posts, audio stream, video generation, web interface, dashboard).
+- `schedule.json`: Defines the broadcasting "tasks" that the swarm needs to perform with priority-based ordering (governance API, control room, dashboard, content renderers).
 - `assignments.json`: A real-time map of which node is currently performing which task. This is the swarm's coordination "whiteboard".
 
 #### 2. The Node (`node.py`)
@@ -120,14 +120,40 @@ python3 node.py
 ```
 
 Then open these URLs in your browser:
-- Dashboard: http://localhost:8000
-- Audio: http://localhost:8001
-- Video: http://localhost:8002
-- Web: http://localhost:8003
-- API Documentation: http://localhost:8004/docs (requires setup)
-- **Control Room**: http://localhost:8005 (comprehensive monitoring and management)
+- **🎛️ Control Room**: http://localhost:8005 - **START HERE!** Complete monitoring and management interface
+- Dashboard: http://localhost:8000 - Basic swarm status dashboard
+- Audio: http://localhost:8001 - Text-to-Speech audio stream
+- Video: http://localhost:8002 - MP4 video with synchronized audio
+- Web: http://localhost:8003 - Simple HTML content display
+- API Documentation: http://localhost:8004/docs - Governance API (requires setup)
 
 The system will automatically start generating content from `shortlist.json` and you can see the swarm coordination in real-time!
+
+## 🎛️ Control Room - Primary Interface
+
+The **Control Room** (port 8005) is your main dashboard for monitoring and managing the entire Shortlist system. It provides:
+
+### **Three Main Sections:**
+1. **🌐 Swarm Status** - Real-time monitoring of all nodes and task assignments with health indicators
+2. **🛡️ Governance API** - Integration status and secure proxy for content management
+3. **📝 Shortlist Editor** - Live editing interface supporting both JSON and line-separated formats
+
+### **Key Features:**
+- **Auto-refresh** every 5 seconds for live updates
+- **Keyboard shortcuts** (Ctrl+R refresh, Ctrl+S save)
+- **Secure proxy** pattern protecting governance API credentials
+- **Real-time statistics** showing alive nodes and healthy tasks
+- **Task priority display** showing current coordination status
+
+### **Task Priority System:**
+The swarm coordinates tasks based on priority (0 = highest):
+1. **Priority 0**: Governance API - Core content management
+2. **Priority 1**: Control Room - Main monitoring interface
+3. **Priority 2**: Dashboard - Basic status monitoring
+4. **Priority 3**: Telegram Text - Primary broadcasting
+5. **Priority 4**: Audio - TTS content generation
+6. **Priority 5**: Video - Video content with synchronized audio
+7. **Priority 6**: Web - Simple HTML interface
 
 ---
 
@@ -169,12 +195,12 @@ python3 node.py
 
 Once a node is running, you can access the different interfaces:
 
-- **Dashboard**: http://localhost:8000 - Monitor swarm activity and node status
-- **Audio Stream**: http://localhost:8001 - Listen to TTS audio of the shortlist
-- **Video Stream**: http://localhost:8002 - Watch video with synchronized audio and text
-- **Web Interface**: http://localhost:8003 - View shortlist in simple HTML format
+- **🎛️ Control Room**: http://localhost:8005 - **Primary interface** with real-time monitoring, governance integration, and shortlist editing
+- **Dashboard**: http://localhost:8000 - Basic swarm activity and node status monitoring
+- **Audio Stream**: http://localhost:8001 - Listen to TTS audio of the shortlist with web player
+- **Video Stream**: http://localhost:8002 - Watch MP4 video with synchronized audio and clean text display
+- **Web Interface**: http://localhost:8003 - Simple HTML view of shortlist content
 - **Governance API**: http://localhost:8004 - Secure API for content management (requires setup)
-- **🎛️ Control Room**: http://localhost:8005 - Comprehensive admin interface for monitoring and management
 
 #### 4. Enable External Integrations (Optional)
 

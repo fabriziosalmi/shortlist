@@ -132,16 +132,33 @@ def get_shortlist_content():
 def get_governance_status():
     """Check if governance API is available"""
     try:
-        response = requests.get(f"{API_URL}/v1/status", timeout=5)
+        # Read assignments to get the actual container name
+        assignments = read_json_file(ASSIGNMENTS_FILE) or {"assignments": {}}
+        governance_assignment = assignments["assignments"].get("shortlist_governance_api")
+
+        if not governance_assignment:
+            return jsonify({
+                "available": False,
+                "error": "Governance API task not assigned to any node"
+            })
+
+        # Construct actual container name: task_id-node_id[:8]
+        node_id = governance_assignment["node_id"]
+        container_name = f"shortlist_governance_api-{node_id[:8]}"
+        api_url = f"http://{container_name}:8000"
+
+        response = requests.get(f"{api_url}/v1/status", timeout=5)
         if response.status_code == 200:
             return jsonify({
                 "available": True,
-                "status": response.json()
+                "status": response.json(),
+                "container_name": container_name
             })
         else:
             return jsonify({
                 "available": False,
-                "error": f"API returned status {response.status_code}"
+                "error": f"API returned status {response.status_code}",
+                "container_name": container_name
             })
     except requests.exceptions.RequestException as e:
         return jsonify({
@@ -167,6 +184,17 @@ def propose_change():
         except Exception as e:
             return jsonify({"error": f"Invalid content format: {str(e)}"}), 400
 
+        # Get dynamic API URL
+        assignments = read_json_file(ASSIGNMENTS_FILE) or {"assignments": {}}
+        governance_assignment = assignments["assignments"].get("shortlist_governance_api")
+
+        if not governance_assignment:
+            return jsonify({"error": "Governance API not available"}), 503
+
+        node_id = governance_assignment["node_id"]
+        container_name = f"shortlist_governance_api-{node_id[:8]}"
+        api_url = f"http://{container_name}:8000"
+
         # Prepare request to governance API
         headers = {"Authorization": f"Bearer {token}"}
         payload = {
@@ -175,7 +203,7 @@ def propose_change():
         }
 
         response = requests.post(
-            f"{API_URL}/v1/proposals/shortlist",
+            f"{api_url}/v1/proposals/shortlist",
             json=payload,
             headers=headers,
             timeout=30
@@ -212,12 +240,23 @@ def apply_change():
         except Exception as e:
             return jsonify({"error": f"Invalid content format: {str(e)}"}), 400
 
+        # Get dynamic API URL
+        assignments = read_json_file(ASSIGNMENTS_FILE) or {"assignments": {}}
+        governance_assignment = assignments["assignments"].get("shortlist_governance_api")
+
+        if not governance_assignment:
+            return jsonify({"error": "Governance API not available"}), 503
+
+        node_id = governance_assignment["node_id"]
+        container_name = f"shortlist_governance_api-{node_id[:8]}"
+        api_url = f"http://{container_name}:8000"
+
         # Prepare request to governance API
         headers = {"Authorization": f"Bearer {token}"}
         payload = {"items": items}
 
         response = requests.post(
-            f"{API_URL}/v1/admin/shortlist",
+            f"{api_url}/v1/admin/shortlist",
             json=payload,
             headers=headers,
             timeout=30
