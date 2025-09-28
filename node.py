@@ -210,14 +210,14 @@ class Node:
 
             # Prepara i volumi
             volumes = [
-                '-v', f'{os.path.abspath("shortlist.json")}:/app/shortlist.json:ro', # Leggi shortlist
+                '-v', f'{os.path.abspath("shortlist.json")}:/app/data/shortlist.json:ro', # Leggi shortlist
                 '-v', f'{os.path.abspath("./output")}:/app/output', # Scrivi output
             ]
             if task_type == 'dashboard':
                 volumes += [
-                    '-v', f'{os.path.abspath("roster.json")}:/app/roster.json:ro',
-                    '-v', f'{os.path.abspath("schedule.json")}:/app/schedule.json:ro',
-                    '-v', f'{os.path.abspath("assignments.json")}:/app/assignments.json:ro',
+                    '-v', f'{os.path.abspath("roster.json")}:/app/data/roster.json:ro',
+                    '-v', f'{os.path.abspath("schedule.json")}:/app/data/schedule.json:ro',
+                    '-v', f'{os.path.abspath("assignments.json")}:/app/data/assignments.json:ro',
                 ]
 
             # Prepara i flag per il port mapping
