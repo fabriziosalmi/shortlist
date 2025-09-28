@@ -19,10 +19,10 @@
       "status": "claiming"
     },
     "telegram_text_posts": {
-      "node_id": "8c8561f2-afc7-46fd-9cf0-a9a9fe802358",
-      "claimed_at": "2025-09-28T09:50:36.693612+00:00",
-      "task_heartbeat": "2025-09-28T09:52:44.117702+00:00",
-      "status": "streaming"
+      "node_id": "c4f78d5d-bdad-4a44-b30e-93d99bcc6135",
+      "claimed_at": "2025-09-28T09:54:17.589444+00:00",
+      "task_heartbeat": "2025-09-28T09:54:17.589444+00:00",
+      "status": "claiming"
     },
     "shortlist_api": {
       "node_id": "7a6a964e-e4a8-45ab-a41c-d214781da5e1",
