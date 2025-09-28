@@ -1,10 +1,10 @@
 {
   "assignments": {
-    "telegram_text_posts": {
-      "node_id": "a218ec61-acb0-4ddd-a9a9-160bf046f571",
-      "claimed_at": "2025-09-28T10:02:39.364144+00:00",
-      "task_heartbeat": "2025-09-28T10:02:43.266696+00:00",
-      "status": "streaming"
+    "shortlist_api": {
+      "node_id": "5d687f51-532e-4961-bc88-050963e9e74b",
+      "claimed_at": "2025-09-28T10:02:58.075452+00:00",
+      "task_heartbeat": "2025-09-28T10:02:58.075452+00:00",
+      "status": "claiming"
     }
   }
 }
