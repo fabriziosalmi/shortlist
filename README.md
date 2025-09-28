@@ -11,7 +11,9 @@ It operates as a **leaderless swarm** of independent nodes that coordinate their
 This project is an experiment in decentralized collaboration. The key principles are:
 
 - **Decentralization:** There is no central orchestrator. Any machine that can run the `node.py` script can join the swarm and contribute to the broadcasting effort.
-- **Resilience:** The swarm is self-healing. If a node responsible for a broadcast task dies, another node will automatically detect the failure and take over the task.
+- **Resilience:** The swarm is self-healing at multiple levels:
+  - **Node Failure Recovery:** If a node responsible for a broadcast task dies, another node will automatically detect the failure and take over the task.
+  - **Service Health Monitoring:** Nodes actively monitor their renderers through health check endpoints, ensuring services remain truly responsive and not just running.
 - **Transparency:** The entire state of the swarm—who is active, what tasks are being performed, and by whom—is publicly visible and auditable through the Git history of this repository.
 - **Git as a Backend:** Instead of complex coordination services like Zookeeper or etcd, the swarm uses Git itself as a distributed lock and state machine, making the system surprisingly simple and robust.
 
@@ -52,8 +54,19 @@ Renderers are the "muscles" of the swarm. They are containerized applications (m
 
 The Shortlist swarm is now equipped with autonomous capabilities, allowing it to adapt and self-heal based on real-time metrics and predefined rules. This is achieved through the integration of two new systemic renderers: the Governor and the Healer.
 
-### Node Self-Awareness
-Every node now monitors its own performance (CPU, memory) and reports it in real-time, transforming the swarm into a sensory system. This data is crucial for the Governor to make informed decisions.
+### Node Self-Awareness & Health Monitoring
+
+#### System Metrics
+Every node monitors its own performance (CPU, memory) and reports it in real-time, transforming the swarm into a sensory system. This data is crucial for the Governor to make informed decisions.
+
+#### Active Health Checks
+Nodes perform continuous health monitoring of their renderer services:
+- Every 20 seconds, nodes ping their renderer's `/health` endpoint
+- If a service fails to respond properly 3 times in a row, it's considered unhealthy
+- Unhealthy services are automatically stopped and their tasks released
+- This prevents "zombie services" that appear running but are actually unresponsive
+
+This active monitoring ensures the swarm maintains true service availability, not just process status.
 
 ### The Governor (`governor`)
 A strategic 'brain' with **Priority -2** that dynamically adapts the swarm's tasks (by modifying `schedule.json`) based on rules defined in `triggers.json`. This allows the swarm to react to temporal events or changes in overall health status.

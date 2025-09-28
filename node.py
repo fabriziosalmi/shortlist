@@ -23,6 +23,77 @@ TASK_EXPIRATION = timedelta(seconds=90) # A task is orphaned if its heartbeat is
 IDLE_PULL_INTERVAL = timedelta(seconds=30)
 JITTER_MILLISECONDS = 5000
 
+# Health check configuration
+HEALTH_CHECK_INTERVAL = timedelta(seconds=20)  # Check health every 20 seconds
+HEALTH_CHECK_TIMEOUT = 3  # Seconds to wait for health check response
+MAX_HEALTH_CHECK_FAILURES = 3  # Number of consecutive failures before considering unhealthy
+
+# Renderer configuration
+RENDERER_CONFIG = {
+    "governor": {
+        "image": "shortlist-governor",
+        "volumes": ["{repo_root}:/app"],
+    },
+    "healer": {
+        "image": "shortlist-healer",
+        "volumes": ["{repo_root}:/app"],
+    },
+    "api": {
+        "image": "shortlist-api",
+        "port": 8004,
+        "health_check": True,
+        "volumes": ["{repo_root}/output:/app/data"],
+    },
+    "admin_ui": {
+        "image": "shortlist-admin-ui",
+        "port": 8005,
+        "health_check": True,
+        "volumes": ["{repo_root}:/app/data"],
+    },
+    "dashboard": {
+        "image": "shortlist-dashboard",
+        "port": 8000,
+        "health_check": True,
+        "volumes": [
+            "{repo_root}/roster.json:/app/data/roster.json:ro",
+            "{repo_root}/schedule.json:/app/data/schedule.json:ro",
+            "{repo_root}/assignments.json:/app/data/assignments.json:ro",
+            "{repo_root}/output:/app/output",
+        ],
+    },
+    "audio": {
+        "image": "shortlist-audio",
+        "port": 8001,
+        "health_check": True,
+        "volumes": [
+            "{repo_root}/shortlist.json:/app/data/shortlist.json:ro",
+            "{repo_root}/output:/app/output",
+        ],
+    },
+    "video": {
+        "image": "shortlist-video",
+        "port": 8002,
+        "health_check": True,
+        "volumes": [
+            "{repo_root}/shortlist.json:/app/data/shortlist.json:ro",
+            "{repo_root}/output:/app/output",
+        ],
+    },
+    "web": {
+        "image": "shortlist-web",
+        "port": 8003,
+        "health_check": True,
+        "volumes": [
+            "{repo_root}/shortlist.json:/app/data/shortlist.json:ro",
+            "{repo_root}/output:/app/data",
+        ],
+    },
+    "text": {
+        "image": "shortlist-text",
+        "volumes": ["{repo_root}/shortlist.json:/app/data/shortlist.json:ro"],
+    },
+}
+
 # Configure logging
 configure_logging('node', log_level="INFO")
 
@@ -31,6 +102,146 @@ class NodeState:
     IDLE = "IDLE"
     ATTEMPT_CLAIM = "ATTEMPT_CLAIM"
     ACTIVE = "ACTIVE"
+
+# --- Docker Management ---
+class DockerManager:
+    """Manages Docker container lifecycle and health checks for renderers."""
+    
+    def __init__(self, task_type: str, task_id: str, node_id: str, logger: Any) -> None:
+        """Initialize Docker manager for a renderer.
+        
+        Args:
+            task_type: Type of renderer (e.g., 'admin_ui', 'api')
+            task_id: Unique task ID
+            node_id: ID of the managing node
+            logger: Logger instance for structured logging
+        """
+        self.task_type = task_type
+        self.task_id = task_id
+        self.node_id = node_id
+        self.logger = logger
+        self.container_id = None
+        self.health_check_failures = 0
+        
+        # Get renderer config
+        self.config = RENDERER_CONFIG.get(task_type, {})
+        if not self.config:
+            raise ValueError(f"No configuration found for renderer type: {task_type}")
+        
+        # Prepare container name
+        self.container_name = f"{task_id}-{node_id[:8]}"
+        
+        # Replace {repo_root} in volume mappings
+        repo_root = os.path.abspath(".")
+        self.config['volumes'] = [
+            v.replace("{repo_root}", repo_root) for v in self.config.get('volumes', [])
+        ]
+    
+    @log_operation
+    def build_image(self) -> None:
+        """Build Docker image for the renderer."""
+        renderer_path = f"renderers/{self.task_type}"
+        if not os.path.exists(renderer_path):
+            raise FileNotFoundError(f"Renderer path not found: {renderer_path}")
+        
+        run_command(['docker', 'build', '-t', self.config['image'], renderer_path])
+    
+    @log_operation
+    def start_container(self) -> str:
+        """Start the renderer container.
+        
+        Returns:
+            str: Container ID
+        """
+        command = ['docker', 'run', '-d', '--name', self.container_name]
+        
+        # Add port mapping if configured
+        if 'port' in self.config:
+            command.extend(['-p', f"{self.config['port']}:8000"])
+        
+        # Add volume mappings
+        for volume in self.config.get('volumes', []):
+            command.extend(['-v', volume])
+        
+        # Add environment variables for API
+        if self.task_type == 'api':
+            for env_var in ['GIT_AUTH_TOKEN', 'GITHUB_REPO', 'MAINTAINER_API_TOKEN', 'CONTRIBUTOR_API_TOKEN']:
+                value = os.getenv(env_var)
+                if value:
+                    command.extend(['-e', f"{env_var}={value}"])
+        
+        # Start container
+        command.append(self.config['image'])
+        result = run_command(command)
+        self.container_id = result.strip()
+        return self.container_id
+    
+    def is_running(self) -> bool:
+        """Check if the container is still running."""
+        if not self.container_id:
+            return False
+        
+        try:
+            result = run_command(['docker', 'ps', '-q', '--filter', f'id={self.container_id}'])
+            return bool(result.strip())
+        except Exception:
+            return False
+    
+    @log_operation
+    def check_health(self) -> bool:
+        """Perform health check if supported.
+        
+        Returns:
+            bool: True if healthy or health checks not supported
+        """
+        if not self.config.get('health_check'):
+            return True
+        
+        if not self.is_running():
+            return False
+        
+        try:
+            import requests
+            port = self.config['port']
+            url = f"http://localhost:{port}/health"
+            
+            response = requests.get(url, timeout=HEALTH_CHECK_TIMEOUT)
+            
+            if response.status_code == 200:
+                self.health_check_failures = 0
+                self.logger.info("Health check succeeded",
+                               task_id=self.task_id,
+                               port=port)
+                return True
+            else:
+                self.health_check_failures += 1
+                self.logger.warning("Health check failed",
+                                task_id=self.task_id,
+                                port=port,
+                                status_code=response.status_code)
+        except Exception as e:
+            self.health_check_failures += 1
+            self.logger.error("Health check error",
+                           error=str(e),
+                           error_type=type(e).__name__,
+                           task_id=self.task_id)
+        
+        return self.health_check_failures < MAX_HEALTH_CHECK_FAILURES
+    
+    @log_operation
+    def stop_container(self) -> None:
+        """Stop and remove the container."""
+        if self.container_id:
+            try:
+                run_command(['docker', 'stop', self.container_id], suppress_errors=True)
+                run_command(['docker', 'rm', self.container_id], suppress_errors=True)
+            except Exception as e:
+                self.logger.error("Failed to stop container",
+                               error=str(e),
+                               error_type=type(e).__name__,
+                               container_id=self.container_id)
+            finally:
+                self.container_id = None
 
 # --- Git Operations ---
 def run_command(command: list[str], suppress_errors: bool = False) -> str:
@@ -236,147 +447,74 @@ class Node(ComponentLogger):
         
         with self.logger.context_bind(task_id=task_id, task_type=task_type):
             self.logger.info("Executing task")
-
-            renderer_path = f"renderers/{task_type}"
-            image_name = f"shortlist-{task_type}-renderer"
-
-            if not os.path.exists(renderer_path):
-                self.logger.error("Renderer not found", renderer_path=renderer_path)
-                old_state = self.state
-                self.state = NodeState.IDLE
-                log_state_change(self.logger, "node_state", old_state, self.state)
-                return
-
-        try:
-            # Build Docker image for the renderer
-            print(f"    - Building Docker image: {image_name}...")
-            run_command(['docker', 'build', '-t', image_name, renderer_path])
-
-            # Prepare volumes and port mapping
-            port_mapping = []
-            if task_type == 'governor' or task_type == 'healer':
-                # Governor and Healer need full access to the repo for git operations and file manipulation
-                volumes = [
-                    '-v', f'{os.path.abspath(".")}:/app',
-                ]
-            else:
-                # Default volumes for other renderers
-                volumes = [
-                    '-v', f'{os.path.abspath("shortlist.json")}:/app/data/shortlist.json:ro', # Read shortlist
-                ]
-                if task_type == 'dashboard':
-                    volumes += [
-                        '-v', f'{os.path.abspath("roster.json")}:/app/data/roster.json:ro',
-                        '-v', f'{os.path.abspath("schedule.json")}:/app/data/schedule.json:ro',
-                        '-v', f'{os.path.abspath("assignments.json")}:/app/data/assignments.json:ro',
-                    ]
-                
-                # Specific volumes and port mappings
-                if task_type == 'audio':
-                    port_mapping = ['-p', '8001:8000']
-                    volumes += [
-                        '-v', f'{os.path.abspath("./output")}:/app/output',
-                    ]
-                elif task_type == 'dashboard':
-                    port_mapping = ['-p', '8000:8000']
-                    volumes += [
-                        '-v', f'{os.path.abspath("./output")}:/app/output', # Dashboard also writes to output
-                    ]
-                elif task_type == 'video':
-                    port_mapping = ['-p', '8002:8000']
-                    volumes += [
-                        '-v', f'{os.path.abspath("./output")}:/app/output',
-                    ]
-                elif task_type == 'web':
-                    port_mapping = ['-p', '8003:8000']
-                    volumes += [
-                        '-v', f'{os.path.abspath("./output")}:/app/data', # This is different from /app/output
-                    ]
-                elif task_type == 'api':
-                    port_mapping = ['-p', '8004:8000']
-                    volumes += [
-                        '-v', f'{os.path.abspath("./output")}:/app/data', # This is different from /app/output
-                    ]
-                elif task_type == 'admin_ui':
-                    port_mapping = ['-p', '8005:8000']
-                    volumes += [
-                        '-v', f'{os.path.abspath(".")}:/app/data', # This mounts the whole repo to /app/data
-                    ]
-
-            # Prepare environment variables for API container
-            env_vars = []
-            if task_type == 'api':
-                # Pass governance API environment variables if available
-                for env_var in ['GIT_AUTH_TOKEN', 'GITHUB_REPO', 'MAINTAINER_API_TOKEN', 'CONTRIBUTOR_API_TOKEN']:
-                    value = os.getenv(env_var)
-                    if value:
-                        env_vars.extend(['-e', f'{env_var}={value}'])
-
-            # Start the renderer container
-            print(f"    - Starting container from image: {image_name}...")
-            container_id = run_command([
-                'docker', 'run', '-d',
-                '--name', f'{task_id}-{self.node_id[:8]}', # Unique name for container
-            ] + volumes + port_mapping + env_vars + [image_name])
-            print(f"    - Container {container_id[:12]} started.")
-            print(f"    - Docker run output: {container_id}")
-
-        except Exception as e:
-            print(f"    - 🚨 Error managing Docker: {e}. Returning to IDLE.")
-            self.state = NodeState.IDLE
-            return
-
-        # Monitoring and heartbeat loop
-        while True:
-            # Check if container is still active
-            running_containers = run_command(['docker', 'ps', '-q', '--filter', f'id={container_id}'])
-            if not running_containers:
-                print(f"    - ‼️ Renderer container has stopped. Releasing task.")
-                break
-
-            print(f"    - [{task_id}] Renderer is active. Performing task heartbeat...")
             
             try:
-                # ... (heartbeat logic remains the same) ...
-                git_pull()
-                assignments = read_json_file(ASSIGNMENTS_FILE) or {"assignments": {}}
-                current_assignment = assignments.get("assignments", {}).get(task_id)
-                if not current_assignment or current_assignment["node_id"] != self.node_id:
-                    print(f"    - ‼️ Lost assignment for task {task_id}. Stopping renderer.")
-                    run_command(['docker', 'stop', container_id], suppress_errors=True)
-                    run_command(['docker', 'rm', container_id], suppress_errors=True)
-                    break
+                # Initialize Docker manager
+                docker_manager = DockerManager(task_type, task_id, self.node_id, self.logger)
 
-                assignments["assignments"][task_id]["task_heartbeat"] = datetime.now(timezone.utc).isoformat()
-                assignments["assignments"][task_id]["status"] = "streaming"
-                # Write to assignments file, using cwd as base
-                assignments_path = os.path.join(os.getcwd(), ASSIGNMENTS_FILE)
-                with open(assignments_path, 'w') as f:
-                    json.dump(assignments, f, indent=2)
+                # Build and start container
+                docker_manager.build_image()
+                container_id = docker_manager.start_container()
                 
-                commit_message = f"chore(assignments): task heartbeat for {task_id} from node {self.node_id[:8]}"
-                commit_and_push([ASSIGNMENTS_FILE], commit_message)
-
+                self.logger.info("Container started",
+                               container_id=container_id[:12])
+                
+                # Monitoring and health check loop
+                last_health_check = datetime.now(timezone.utc)
+                
+                while True:
+                    now = datetime.now(timezone.utc)
+                    
+                    # Check container health
+                    if now - last_health_check >= HEALTH_CHECK_INTERVAL:
+                        if not docker_manager.is_running():
+                            self.logger.warning("Container stopped unexpectedly",
+                                            container_id=container_id[:12])
+                            break
+                        
+                        if not docker_manager.check_health():
+                            self.logger.error("Health check failed too many times",
+                                           container_id=container_id[:12],
+                                           failures=docker_manager.health_check_failures)
+                            break
+                        
+                        last_health_check = now
+                    
+                    # Perform task heartbeat
+                    with log_operation(self.logger, "task_heartbeat"):
+                        git_pull()
+                        assignments = read_json_file(ASSIGNMENTS_FILE) or {"assignments": {}}
+                        current_assignment = assignments.get("assignments", {}).get(task_id)
+                        
+                        if not current_assignment or current_assignment["node_id"] != self.node_id:
+                            self.logger.warning("Lost task assignment")
+                            break
+                        
+                        assignments["assignments"][task_id]["task_heartbeat"] = now.isoformat()
+                        assignments["assignments"][task_id]["status"] = "streaming"
+                        
+                        with open(ASSIGNMENTS_FILE, 'w') as f:
+                            json.dump(assignments, f, indent=2)
+                        
+                        commit_message = f"chore(assignments): task heartbeat for {task_id} from node {self.node_id[:8]}"
+                        commit_and_push([ASSIGNMENTS_FILE], commit_message)
+                    
+                    time.sleep(TASK_HEARTBEAT_INTERVAL.seconds)
+                
+                # Clean up
+                docker_manager.stop_container()
+                
             except Exception as e:
-                print(f"    - 🚨 Error during task heartbeat: {e}. Stopping renderer.")
-                run_command(['docker', 'stop', container_id], suppress_errors=True)
-                run_command(['docker', 'rm', container_id], suppress_errors=True)
-                break
-            
-            time.sleep(TASK_HEARTBEAT_INTERVAL.seconds)
+                self.logger.error("Error in active state",
+                               error=str(e),
+                               error_type=type(e).__name__)
+                if 'docker_manager' in locals():
+                    docker_manager.stop_container()
 
-        # Final cleanup in case of loop exit
-        try:
-            print(f"    - Cleaning up container {container_id[:12]}...")
-            run_command(['docker', 'stop', container_id], suppress_errors=True)
-            run_command(['docker', 'rm', container_id], suppress_errors=True)
-        except Exception as e:
-            print(f"    - Error during container cleanup: {e}")
-
-        # End of work, return to IDLE
-        print(f"Task {task_id} finished. Returning to IDLE.")
-        self.current_task = None
-        self.state = NodeState.IDLE
+            # End of work, return to IDLE
+            self.logger.info("Task finished")
+            self.current_task = None
+            self.state = NodeState.IDLE
 
     @log_execution_time
     def perform_roster_heartbeat(self) -> None:
