@@ -15,8 +15,8 @@
     "self_hosted_audio_stream": {
       "node_id": "e3a1e4f2-033d-44b4-afb2-58faad3d011c",
       "claimed_at": "2025-09-28T09:26:16.785805+00:00",
-      "task_heartbeat": "2025-09-28T09:26:16.785805+00:00",
-      "status": "claiming"
+      "task_heartbeat": "2025-09-28T09:26:22.211849+00:00",
+      "status": "streaming"
     }
   }
 }
