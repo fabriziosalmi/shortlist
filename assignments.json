@@ -1,34 +1,10 @@
 {
   "assignments": {
     "swarm_status_dashboard": {
-      "node_id": "1b5c4159-e3db-4469-841c-05bf10523cff",
-      "claimed_at": "2025-09-28T10:00:02.232501+00:00",
-      "task_heartbeat": "2025-09-28T10:00:08.173263+00:00",
-      "status": "streaming"
-    },
-    "self_hosted_audio_stream": {
-      "node_id": "fa99fd11-7231-47a8-8a90-a307f2be6968",
-      "claimed_at": "2025-09-28T10:01:19.194922+00:00",
-      "task_heartbeat": "2025-09-28T10:01:24.344275+00:00",
-      "status": "streaming"
-    },
-    "youtube_video_stream": {
-      "node_id": "fa99fd11-7231-47a8-8a90-a307f2be6968",
-      "claimed_at": "2025-09-28T10:01:12.592870+00:00",
-      "task_heartbeat": "2025-09-28T10:01:12.592870+00:00",
+      "node_id": "4cd4342e-1c17-4ee5-ad7c-e55001d7c30b",
+      "claimed_at": "2025-09-28T10:02:10.785973+00:00",
+      "task_heartbeat": "2025-09-28T10:02:10.785973+00:00",
       "status": "claiming"
-    },
-    "telegram_text_posts": {
-      "node_id": "c4f78d5d-bdad-4a44-b30e-93d99bcc6135",
-      "claimed_at": "2025-09-28T09:54:17.589444+00:00",
-      "task_heartbeat": "2025-09-28T09:54:21.083701+00:00",
-      "status": "streaming"
-    },
-    "shortlist_api": {
-      "node_id": "7a6a964e-e4a8-45ab-a41c-d214781da5e1",
-      "claimed_at": "2025-09-28T09:50:00.229694+00:00",
-      "task_heartbeat": "2025-09-28T09:54:10.203748+00:00",
-      "status": "streaming"
     }
   }
 }
