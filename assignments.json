@@ -17,6 +17,12 @@
       "claimed_at": "2025-09-28T13:23:32.610105+00:00",
       "task_heartbeat": "2025-09-28T15:32:34.153612+00:00",
       "status": "streaming"
+    },
+    "shortlist_governance_api": {
+      "node_id": "41f31830-3e59-4fad-b6c2-98831af32f92",
+      "claimed_at": "2025-09-28T15:32:47.231526+00:00",
+      "task_heartbeat": "2025-09-28T15:32:47.231526+00:00",
+      "status": "claiming"
     }
   }
 }
