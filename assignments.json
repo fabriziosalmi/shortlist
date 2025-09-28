@@ -8,8 +8,8 @@
     },
     "self_hosted_audio_stream": {
       "node_id": "d1853d3c-b6c9-4caa-9349-2bf337ab91ee",
-      "claimed_at": "2025-09-28T08:57:46.195228+00:00",
-      "task_heartbeat": "2025-09-28T08:57:46.195228+00:00",
+      "claimed_at": "2025-09-28T08:59:52.676663+00:00",
+      "task_heartbeat": "2025-09-28T08:59:52.676663+00:00",
       "status": "claiming"
     },
     "telegram_text_posts": {
