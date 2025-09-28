@@ -11,6 +11,12 @@
       "claimed_at": "2025-09-28T09:24:57.653784+00:00",
       "task_heartbeat": "2025-09-28T09:24:57.653784+00:00",
       "status": "claiming"
+    },
+    "youtube_video_stream": {
+      "node_id": "81fc87fc-2715-4f13-ae87-6fe739669417",
+      "claimed_at": "2025-09-28T09:25:01.987195+00:00",
+      "task_heartbeat": "2025-09-28T09:25:01.987195+00:00",
+      "status": "claiming"
     }
   }
 }
