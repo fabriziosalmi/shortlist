@@ -1,0 +1,103 @@
+{
+  "tasks": [
+    {
+      "id": "youtube_stream",
+      "type": "live_streamer",
+      "priority": 5,
+      "config": {
+        "platform": "youtube",
+        "stream_key_secret_name": "YOUTUBE_STREAM_KEY",
+        "video": {
+          "resolution": "1280x720",
+          "framerate": 30,
+          "bitrate": "3000k"
+        },
+        "audio": {
+          "bitrate": "128k",
+          "channels": 2,
+          "sample_rate": 44100
+        }
+      }
+    },
+    {
+      "id": "twitch_stream",
+      "type": "live_streamer",
+      "priority": 6,
+      "config": {
+        "platform": "twitch",
+        "stream_key_secret_name": "TWITCH_STREAM_KEY",
+        "video": {
+          "resolution": "1920x1080",
+          "framerate": 60,
+          "bitrate": "6000k"
+        },
+        "audio": {
+          "bitrate": "160k",
+          "channels": 2,
+          "sample_rate": 48000
+        }
+      }
+    },
+    {
+      "id": "facebook_stream",
+      "type": "live_streamer",
+      "priority": 7,
+      "config": {
+        "platform": "facebook",
+        "stream_key_secret_name": "FACEBOOK_STREAM_KEY",
+        "video": {
+          "resolution": "1280x720",
+          "framerate": 30,
+          "bitrate": "4000k",
+          "profile": "main",
+          "level": "3.1"
+        },
+        "audio": {
+          "bitrate": "128k",
+          "channels": 2,
+          "sample_rate": 44100
+        }
+      }
+    },
+    {
+      "id": "vimeo_stream",
+      "type": "live_streamer",
+      "priority": 8,
+      "config": {
+        "platform": "vimeo",
+        "rtmp_url": "rtmp://your-vimeo-ingest-url",
+        "stream_key_secret_name": "VIMEO_STREAM_KEY",
+        "video": {
+          "resolution": "1920x1080",
+          "framerate": 30,
+          "bitrate": "5000k"
+        },
+        "audio": {
+          "bitrate": "192k",
+          "channels": 2,
+          "sample_rate": 48000
+        }
+      }
+    },
+    {
+      "id": "linkedin_stream",
+      "type": "live_streamer",
+      "priority": 9,
+      "config": {
+        "platform": "linkedin",
+        "rtmp_url": "rtmp://your-linkedin-ingest-url",
+        "stream_key_secret_name": "LINKEDIN_STREAM_KEY",
+        "video": {
+          "resolution": "1920x1080",
+          "framerate": 30,
+          "bitrate": "4000k"
+        },
+        "audio": {
+          "bitrate": "128k",
+          "channels": 2,
+          "sample_rate": 44100
+        }
+      }
+    }
+  ]
+}

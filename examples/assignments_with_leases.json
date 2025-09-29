@@ -1,0 +1,21 @@
+{
+  "assignments": {
+    "system_governor": {
+      "node_id": "node_a1b2c3",
+      "lease_expires_at": "2025-09-28T21:27:43Z",
+      "assigned_at": "2025-09-28T21:22:43Z"
+    },
+    "system_healer": {
+      "node_id": "node_d4e5f6",
+      "lease_expires_at": "2025-09-28T21:26:13Z",
+      "assigned_at": "2025-09-28T21:21:13Z"
+    },
+    "video_stream": {
+      "node_id": "node_g7h8i9",
+      "lease_expires_at": "2025-09-28T21:25:55Z",
+      "assigned_at": "2025-09-28T21:20:55Z"
+    }
+  },
+  "_comment": "This file is managed automatically by the Shortlist swarm. Manual edits will be overwritten.",
+  "_schema_version": "2.0"
+}

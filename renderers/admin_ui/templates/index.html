@@ -401,7 +401,78 @@
             </div>
         </div>
 
-        <!-- Section 3: Shortlist Editor (Full Width) -->
+        <!-- Section 3: History & Rollback -->
+        <div class="section">
+            <div class="section-header">
+                <h2>🕘 History & Rollback</h2>
+                <button id="refresh-history-btn" class="btn btn-secondary">
+                    <span id="history-spinner" class="spinner" style="display: none;"></span>
+                    🔄 Refresh History
+                </button>
+            </div>
+            <div class="section-content">
+                <div class="text-small text-muted mb-1">
+                    View the edit history of shortlist.json and safely revert a past change.
+                </div>
+                <table class="table" id="history-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Author</th>
+                            <th>Description</th>
+                            <th style="width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-tbody">
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">History will load here...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Section 4: Secrets Management -->
+        <div class="section">
+            <div class="section-header">
+                <h2>🔐 Secrets Management</h2>
+                <button id="refresh-secrets-btn" class="btn btn-secondary" disabled>
+                    <span id="secrets-spinner" class="spinner" style="display:none;"></span>
+                    🔄 Refresh
+                </button>
+            </div>
+            <div class="section-content">
+                <div class="text-small text-muted mb-1">
+                    Manage secure secrets used by renderers. Only keys are displayed here; values are never shown.
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Add / Update Secret</label>
+                    <div class="flex gap-2">
+                        <input id="secret-key" class="form-input" placeholder="SECRET_KEY (e.g., TELEGRAM_API_TOKEN)">
+                        <input id="secret-value" type="password" class="form-input" placeholder="Secret value">
+                        <button id="save-secret-btn" class="btn btn-primary" disabled>💾 Save Secret</button>
+                    </div>
+                </div>
+
+                <h3 class="mb-1">Configured Secrets</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th style="width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="secrets-tbody">
+                        <tr>
+                            <td colspan="2" class="text-center text-muted">Enter a maintainer token to view configured secrets.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Section 5: Shortlist Editor (Full Width) -->
         <div class="section editor-section">
             <div class="section-header">
                 <h2>📝 Shortlist Editor</h2>
@@ -464,6 +535,14 @@
                             <span id="apply-spinner" class="spinner" style="display: none;"></span>
                             ⚡ Apply Direct Change (Admin)
                         </button>
+                        <button id="preview-audio-btn" class="btn btn-secondary" disabled>
+                            <span id="preview-audio-spinner" class="spinner" style="display: none;"></span>
+                            🔊 Preview Audio
+                        </button>
+                        <button id="preview-video-btn" class="btn btn-secondary" disabled>
+                            <span id="preview-video-spinner" class="spinner" style="display: none;"></span>
+                            🎬 Preview Video
+                        </button>
                     </div>
 
                     <div class="response-log" id="response-log">
@@ -476,6 +555,20 @@ Ready to execute commands...
 - Refresh content to see latest changes from Git
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="preview-modal" style="display:none; position:fixed; inset:0; background: rgba(0,0,0,0.7); align-items:center; justify-content:center;">
+        <div style="background:#fff; padding:1rem; border-radius:8px; max-width:90vw; max-height:90vh;">
+            <div class="flex flex-between mb-1">
+                <h3>Preview</h3>
+                <button id="close-preview" class="btn btn-secondary">✖ Close</button>
+            </div>
+            <div id="preview-container" style="display:flex; justify-content:center; align-items:center; max-height: 80vh;">
+                <video id="preview-video" controls style="max-width:85vw; max-height:75vh; display:none;"></video>
+                <audio id="preview-audio" controls style="width:85vw; display:none;"></audio>
             </div>
         </div>
     </div>
@@ -512,7 +605,31 @@ Ready to execute commands...
             proposeSpinner: document.getElementById('propose-spinner'),
             applyBtn: document.getElementById('apply-btn'),
             applySpinner: document.getElementById('apply-spinner'),
-            responseLog: document.getElementById('response-log')
+            responseLog: document.getElementById('response-log'),
+
+            // Preview controls
+            previewAudioBtn: document.getElementById('preview-audio-btn'),
+            previewVideoBtn: document.getElementById('preview-video-btn'),
+            previewAudioSpinner: document.getElementById('preview-audio-spinner'),
+            previewVideoSpinner: document.getElementById('preview-video-spinner'),
+            previewModal: document.getElementById('preview-modal'),
+            closePreviewBtn: document.getElementById('close-preview'),
+            previewVideoEl: document.getElementById('preview-video'),
+            previewAudioEl: document.getElementById('preview-audio'),
+            previewContainer: document.getElementById('preview-container'),
+
+            // Secrets
+            refreshSecretsBtn: document.getElementById('refresh-secrets-btn'),
+            secretsSpinner: document.getElementById('secrets-spinner'),
+            secretsTbody: document.getElementById('secrets-tbody'),
+            saveSecretBtn: document.getElementById('save-secret-btn'),
+            secretKeyInput: document.getElementById('secret-key'),
+            secretValueInput: document.getElementById('secret-value'),
+
+            // History section
+            refreshHistoryBtn: document.getElementById('refresh-history-btn'),
+            historySpinner: document.getElementById('history-spinner'),
+            historyTbody: document.getElementById('history-tbody')
         };
 
         // Utility functions
@@ -593,6 +710,19 @@ Ready to execute commands...
             } finally {
                 hideSpinner(elements.contentSpinner);
             }
+        }
+
+        function togglePreviewButtons() {
+            const hasToken = !!elements.apiToken.value.trim();
+            elements.previewAudioBtn.disabled = !hasToken;
+            elements.previewVideoBtn.disabled = !hasToken;
+            // Secrets section enablement
+            elements.refreshSecretsBtn.disabled = !hasToken;
+            elements.saveSecretBtn.disabled = !hasToken;
+        }
+            const hasToken = !!elements.apiToken.value.trim();
+            elements.previewAudioBtn.disabled = !hasToken;
+            elements.previewVideoBtn.disabled = !hasToken;
         }
 
         async function proposeChange() {
@@ -690,6 +820,225 @@ Ready to execute commands...
             } finally {
                 hideSpinner(elements.applySpinner);
                 elements.applyBtn.disabled = false;
+            }
+        }
+
+        async function fetchHistory() {
+            const token = elements.apiToken.value.trim();
+            if (!token) {
+                logMessage('Please enter your API token to fetch history', 'error');
+                return;
+            }
+            showSpinner(elements.historySpinner);
+            try {
+                const resp = await fetch(`/api/history?token=${encodeURIComponent(token)}`);
+                const data = await resp.json();
+                if (!resp.ok) {
+                    throw new Error(data.error || `HTTP ${resp.status}`);
+                }
+                renderHistory(data);
+                logMessage('History loaded', 'success');
+            } catch (err) {
+                logMessage(`Failed to load history: ${err.message}`, 'error');
+            } finally {
+                hideSpinner(elements.historySpinner);
+            }
+        }
+
+        function renderHistory(entries) {
+            elements.historyTbody.innerHTML = '';
+            if (!Array.isArray(entries) || entries.length === 0) {
+                elements.historyTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No history entries found</td></tr>';
+                return;
+            }
+            entries.forEach((e) => {
+                const tr = document.createElement('tr');
+                const dateStr = new Date(e.date.replace(' ', 'T')).toLocaleString();
+                tr.innerHTML = `
+                    <td class="text-small">${dateStr}</td>
+                    <td class="text-small">${e.author}</td>
+                    <td>${escapeHtml(e.subject || '')}</td>
+                    <td>
+                        <button class="btn btn-warning btn-revert" data-hash="${e.hash}">↩️ Revert</button>
+                    </td>
+                `;
+                elements.historyTbody.appendChild(tr);
+            });
+            // Bind revert buttons
+            document.querySelectorAll('.btn-revert').forEach(btn => {
+                btn.addEventListener('click', async (ev) => {
+                    const hash = ev.currentTarget.getAttribute('data-hash');
+                    await revertCommit(hash);
+                });
+            });
+        }
+
+        async function revertCommit(commitHash) {
+            const token = elements.apiToken.value.trim();
+            if (!token) {
+                logMessage('Please enter your API token to perform a revert', 'error');
+                return;
+            }
+            if (!commitHash) return;
+            const confirmMsg = `⚠️ Are you sure you want to revert commit ${commitHash.slice(0,8)}?`;
+            if (!confirm(confirmMsg)) return;
+
+            showSpinner(elements.historySpinner);
+            try {
+                const resp = await fetch('/ui/revert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, commit_hash: commitHash })
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    throw new Error(data.error || `HTTP ${resp.status}`);
+                }
+                logMessage(`Rollback completed. PR: ${data.pull_request_url || 'merged'}`, 'success');
+                logJson(data, '↩️ Revert Response:');
+                // Refresh history and editor after a short delay
+                setTimeout(() => { fetchHistory(); fetchShortlistContent(); }, 2000);
+            } catch (err) {
+                logMessage(`Rollback failed: ${err.message}`, 'error');
+            } finally {
+                hideSpinner(elements.historySpinner);
+            }
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"]/g, function(c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+            });
+        }
+
+        async function generatePreview(rendererType) {
+            const token = elements.apiToken.value.trim();
+            const contentText = elements.shortlistEditor.value.trim();
+            if (!token) { logMessage('Please enter your API token', 'error'); return; }
+            if (!contentText) { logMessage('Please enter content in the editor', 'error'); return; }
+            let parsed;
+            try {
+                parsed = JSON.parse(contentText);
+            } catch (e) {
+                logMessage('Please provide valid JSON content for preview', 'error');
+                return;
+            }
+
+            const spinner = rendererType === 'audio' ? elements.previewAudioSpinner : elements.previewVideoSpinner;
+            showSpinner(spinner);
+            try {
+                const resp = await fetch('/ui/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, renderer_type: rendererType, content: parsed })
+                });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+                    throw new Error(err.error || `HTTP ${resp.status}`);
+                }
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                // Show modal and play
+                elements.previewModal.style.display = 'flex';
+                elements.previewAudioEl.style.display = 'none';
+                elements.previewVideoEl.style.display = 'none';
+                if (rendererType === 'video') {
+                    elements.previewVideoEl.src = url; elements.previewVideoEl.style.display = 'block'; elements.previewVideoEl.play();
+                } else {
+                    elements.previewAudioEl.src = url; elements.previewAudioEl.style.display = 'block'; elements.previewAudioEl.play();
+                }
+                logMessage('Preview generated successfully', 'success');
+            } catch (e) {
+                logMessage(`Preview failed: ${e.message}`, 'error');
+            } finally {
+                hideSpinner(spinner);
+            }
+        }
+
+        async function fetchSecrets() {
+            const token = elements.apiToken.value.trim();
+            if (!token) return;
+            showSpinner(elements.secretsSpinner);
+            try {
+                const resp = await fetch(`/api/secrets?token=${encodeURIComponent(token)}`);
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+                renderSecrets(data.secrets || []);
+            } catch (e) {
+                logMessage(`Failed to load secrets: ${e.message}`, 'error');
+            } finally {
+                hideSpinner(elements.secretsSpinner);
+            }
+        }
+
+        function renderSecrets(keys) {
+            elements.secretsTbody.innerHTML = '';
+            if (!Array.isArray(keys) || keys.length === 0) {
+                elements.secretsTbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No secrets configured</td></tr>';
+                return;
+            }
+            keys.forEach((k) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${escapeHtml(k)}</td>
+                    <td>
+                        <button class="btn btn-warning btn-delete-secret" data-key="${k}">🗑️ Delete</button>
+                    </td>
+                `;
+                elements.secretsTbody.appendChild(tr);
+            });
+            document.querySelectorAll('.btn-delete-secret').forEach(btn => {
+                btn.addEventListener('click', async (ev) => {
+                    const key = ev.currentTarget.getAttribute('data-key');
+                    await deleteSecret(key);
+                });
+            });
+        }
+
+        async function saveSecret() {
+            const token = elements.apiToken.value.trim();
+            const key = elements.secretKeyInput.value.trim();
+            const value = elements.secretValueInput.value;
+            if (!token) { logMessage('Please enter your API token', 'error'); return; }
+            if (!key || !value) { logMessage('Please provide both secret key and value', 'error'); return; }
+            showSpinner(elements.secretsSpinner);
+            try {
+                const resp = await fetch('/ui/secrets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, key, value })
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+                logMessage(`Secret ${key} saved`, 'success');
+                elements.secretValueInput.value = '';
+                fetchSecrets();
+            } catch (e) {
+                logMessage(`Failed to save secret: ${e.message}`, 'error');
+            } finally {
+                hideSpinner(elements.secretsSpinner);
+            }
+        }
+
+        async function deleteSecret(key) {
+            const token = elements.apiToken.value.trim();
+            if (!token) { logMessage('Please enter your API token', 'error'); return; }
+            if (!confirm(`Delete secret ${key}?`)) return;
+            showSpinner(elements.secretsSpinner);
+            try {
+                const resp = await fetch('/ui/secrets', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, key })
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+                logMessage(`Secret ${key} deleted`, 'success');
+                fetchSecrets();
+            } catch (e) {
+                logMessage(`Failed to delete secret: ${e.message}`, 'error');
+            } finally {
+                hideSpinner(elements.secretsSpinner);
             }
         }
 
@@ -846,10 +1195,21 @@ Ready to execute commands...
         // Event listeners
         elements.refreshStatusBtn.addEventListener('click', fetchSwarmStatus);
         elements.refreshGovernanceBtn.addEventListener('click', fetchGovernanceStatus);
+        elements.refreshHistoryBtn.addEventListener('click', fetchHistory);
         elements.refreshContentBtn.addEventListener('click', fetchShortlistContent);
         elements.formatJsonBtn.addEventListener('click', formatJson);
         elements.proposeBtn.addEventListener('click', proposeChange);
         elements.applyBtn.addEventListener('click', applyChange);
+        elements.previewAudioBtn.addEventListener('click', () => generatePreview('audio'));
+        elements.previewVideoBtn.addEventListener('click', () => generatePreview('video'));
+        elements.closePreviewBtn.addEventListener('click', () => {
+            elements.previewModal.style.display = 'none';
+            elements.previewAudioEl.pause(); elements.previewVideoEl.pause();
+            elements.previewAudioEl.src = ''; elements.previewVideoEl.src = '';
+        });
+        elements.apiToken.addEventListener('input', () => { togglePreviewButtons(); fetchSecrets(); });
+        elements.refreshSecretsBtn.addEventListener('click', fetchSecrets);
+        elements.saveSecretBtn.addEventListener('click', saveSecret);
 
         // Auto-refresh functionality
         function startAutoRefresh() {
@@ -868,8 +1228,14 @@ Ready to execute commands...
             await Promise.all([
                 fetchSwarmStatus(),
                 fetchGovernanceStatus(),
-                fetchShortlistContent()
+                fetchShortlistContent(),
+                fetchHistory()
             ]);
+            // Initial secrets load if token present
+            if (elements.apiToken.value.trim()) { fetchSecrets(); }
+
+            // Enable/disable preview buttons
+            togglePreviewButtons();
 
             // Start auto-refresh
             startAutoRefresh();

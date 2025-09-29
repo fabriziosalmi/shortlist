@@ -42,7 +42,11 @@ RENDERER_CONFIG = {
         "image": "shortlist-api",
         "port": 8004,
         "health_check": True,
-        "volumes": ["{repo_root}/output:/app/data"],
+        "volumes": [
+            "{repo_root}/output:/app/data",
+            "{repo_root}/secrets:/app/data/secrets:rw"
+        ],
+        "env_vars": ["MAINTAINER_API_TOKEN", "CONTRIBUTOR_API_TOKEN", "GIT_AUTH_TOKEN"]
     },
     "admin_ui": {
         "image": "shortlist-admin-ui",
@@ -91,6 +95,16 @@ RENDERER_CONFIG = {
     "text": {
         "image": "shortlist-text",
         "volumes": ["{repo_root}/shortlist.json:/app/data/shortlist.json:ro"],
+    },
+    "metrics_exporter": {
+        "image": "shortlist-metrics-exporter",
+        "port": 9091,
+        "health_check": True,
+        "volumes": [
+            "{repo_root}:/app/data",
+            "{repo_root}/output:/app/output",
+            "{repo_root}/config:/app/config"
+        ],
     },
 }
 
@@ -154,6 +168,27 @@ class DockerManager:
             str: Container ID
         """
         command = ['docker', 'run', '-d', '--name', self.container_name]
+
+        # Inject environment variables from OS env or secrets file
+        try:
+            secrets_path = os.path.join(os.path.abspath('.'), 'secrets', 'secrets.json')
+            secrets = {}
+            if os.path.exists(secrets_path):
+                with open(secrets_path, 'r') as f:
+                    secrets = json.load(f) if f else {}
+        except Exception:
+            secrets = {}
+
+        required_env = self.config.get('env_vars', [])
+        for var in required_env:
+            val = os.getenv(var)
+            if not val:
+                val = secrets.get(var)
+            if val:
+                command.extend(['-e', f'{var}={val}'])
+            else:
+                self.logger.warning("Missing optional environment variable for renderer",
+                                    variable=var, task_type=self.task_type)
         
         # Add port mapping if configured
         if 'port' in self.config:

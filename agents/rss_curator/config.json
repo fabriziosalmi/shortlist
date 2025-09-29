@@ -1,0 +1,30 @@
+{
+  "api_endpoint": "http://localhost:8004/v1/proposals/shortlist",
+  "api_token_env_var": "CONTRIBUTOR_API_TOKEN",
+  "check_interval": 3600,
+  "feeds": [
+    {
+      "name": "Tech News",
+      "url": "https://feeds.arstechnica.com/arstechnica/index",
+      "keywords": ["AI", "machine learning", "security", "cloud", "open source"],
+      "max_age_days": 2
+    },
+    {
+      "name": "GitHub Blog",
+      "url": "https://github.blog/feed/",
+      "keywords": ["release", "security", "copilot", "actions"],
+      "max_age_days": 3
+    },
+    {
+      "name": "AWS News",
+      "url": "https://aws.amazon.com/blogs/aws/feed/",
+      "keywords": ["launch", "preview", "serverless", "container"],
+      "max_age_days": 2
+    }
+  ],
+  "content_template": {
+    "title": "📰 {title}",
+    "content": "From {feed_name}:\n\n{description}\n\n🔗 Read more: {link}",
+    "type": "text"
+  }
+}

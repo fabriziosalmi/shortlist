@@ -1,0 +1,50 @@
+{
+  "data": {
+    "company": {
+      "name": "TechCorp",
+      "year_founded": 2020,
+      "current_milestone": "Series B"
+    },
+    "report": {
+      "period": "Q4 2025",
+      "key_metrics": {
+        "revenue_growth": 28.5,
+        "new_customers": 1250,
+        "satisfaction_score": 4.8
+      },
+      "team": {
+        "lead": "Dr. Eva Rostova",
+        "size": 42,
+        "locations": ["San Francisco", "London", "Tokyo"]
+      }
+    },
+    "product": {
+      "name": "CloudMaster Pro",
+      "version": "2.5.0",
+      "release_date": "2025-10-15"
+    }
+  },
+  "items": [
+    {
+      "id": "quarterly_report_header",
+      "type": "text",
+      "content": "{{ company.name }} - {{ report.period }} Performance Report\nPrepared by {{ report.team.lead }}"
+    },
+    {
+      "id": "metrics_summary",
+      "type": "text",
+      "content": "Key Achievements:\n- Revenue growth: {{ report.key_metrics.revenue_growth }}%\n- New customers acquired: {{ report.key_metrics.new_customers }}\n- Customer satisfaction: {{ report.key_metrics.satisfaction_score }}/5.0"
+    },
+    {
+      "id": "product_announcement",
+      "type": "image",
+      "source_url": "https://assets.techcorp.com/{{ product.name | lower | replace(' ', '_') }}_{{ product.version }}.png",
+      "caption": "Introducing {{ product.name }} v{{ product.version }} - Coming {{ product.release_date }}"
+    },
+    {
+      "id": "team_update",
+      "type": "text",
+      "content": "Our global team of {{ report.team.size }} professionals, led by {{ report.team.lead }}, operates from {% for location in report.team.locations %}{{ location }}{% if not loop.last %}, {% endif %}{% endfor %}."
+    }
+  ]
+}

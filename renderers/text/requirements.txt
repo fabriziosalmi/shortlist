@@ -1,1 +1,4 @@
+croniter>=1.3.8  # Required for time-based scheduling
+requests>=2.31.0
+
 requests

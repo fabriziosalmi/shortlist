@@ -1,0 +1,52 @@
+{
+  "data": {
+    "campaign": {
+      "name": "Summer Sale 2025",
+      "dates": {
+        "start": "2025-07-01",
+        "end": "2025-07-31"
+      },
+      "discount": 25,
+      "products": [
+        {"name": "Beach Umbrella", "price": 49.99, "stock": 150},
+        {"name": "Cooling Fan", "price": 29.99, "stock": 300},
+        {"name": "Ice Maker", "price": 199.99, "stock": 75}
+      ]
+    },
+    "store": {
+      "name": "CoolBreeze",
+      "website": "coolbreeze.com",
+      "social": {
+        "twitter": "@coolbreeze",
+        "instagram": "@coolbreeze_shop"
+      },
+      "locations": [
+        {"city": "Miami", "address": "123 Beach Drive"},
+        {"city": "Orlando", "address": "456 Palm Avenue"},
+        {"city": "Tampa", "address": "789 Bay Street"}
+      ]
+    }
+  },
+  "items": [
+    {
+      "id": "campaign_header",
+      "type": "text",
+      "content": "🌟 {{ campaign.name }} at {{ store.name }} 🌟\nJuly 1-31: Everything {{ campaign.discount }}% OFF!"
+    },
+    {
+      "id": "product_highlights",
+      "type": "text",
+      "content": "Top Deals:\n{% for product in campaign.products %}\n🔥 {{ product.name }}: ${{ '%.2f' | format(product.price * (1 - campaign.discount/100)) }} (Was ${{ product.price }})\n{% endfor %}"
+    },
+    {
+      "id": "store_locations",
+      "type": "text",
+      "content": "Visit us at:\n{% for loc in store.locations %}📍 {{ loc.city }}: {{ loc.address }}\n{% endfor %}"
+    },
+    {
+      "id": "social_cta",
+      "type": "text",
+      "content": "Follow us {{ store.social.twitter }} and {{ store.social.instagram }} for daily deals!\nShop online at {{ store.website }}"
+    }
+  ]
+}

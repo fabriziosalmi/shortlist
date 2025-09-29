@@ -16,18 +16,20 @@ configure_logging('text_renderer', log_level="INFO", log_file='/app/data/text.lo
 logger = ComponentLogger('text_renderer')
 logger.logger.add_context(**RENDERER_CONTEXT, renderer_type='text')
 
-def read_shortlist(filepath: str) -> List[str]:
-    """Read shortlist items from JSON file."""
+def read_shortlist(filepath: str) -> Dict[str, Any]:
+    """Read shortlist content from JSON file."""
     try:
         with open(filepath, 'r') as f:
             data = json.load(f)
-            return data.get('items', [])
+            return data
     except Exception as e:
         logger.logger.error("Failed to read shortlist",
                           error=str(e),
                           error_type=type(e).__name__,
                           filepath=filepath)
-        return []
+        return {'data': {}, 'items': []}
+
+from utils.template_processor import process_shortlist_content
 
 @log_execution_time(logger.logger)
 def main():
@@ -42,19 +44,25 @@ def main():
     #     print("[TextRenderer] 🚨 Errore: TELEGRAM_API_TOKEN o TELEGRAM_CHAT_ID non impostati.")
     #     return
 
-while True:
+    while True:
         with log_operation(logger.logger, "publish_cycle"):
-            items = read_shortlist(shortlist_file)
+            # Read and process the shortlist with templates
+            shortlist_data = read_shortlist(shortlist_file)
+            processed_data = process_shortlist_content(shortlist_data)
+            items = processed_data.get('items', [])
             
             if not items:
                 logger.logger.warning("Shortlist empty or not found")
             else:
                 # Simula l'invio di un post ogni 15 secondi per ogni item
                 for i, item in enumerate(items, 1):
-                    message = f"Shortlist #{i}: {item}"
+                    # Extract the content from the item dict or use item directly if it's a string
+                    content = item.get('content', item) if isinstance(item, dict) else item
+                    message = f"Shortlist #{i}: {content}"
                     logger.logger.info("Simulated post to telegram",
-                                      index=i,
-                                      message_preview=message[:80])
+                                     index=i,
+                                     message_preview=message[:80],
+                                     template_processed=isinstance(item, dict))
                     time.sleep(15)
             
             logger.logger.info("Cycle completed, sleeping",

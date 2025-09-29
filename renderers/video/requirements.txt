@@ -2,3 +2,6 @@ Flask
 Pillow
 gTTS
 pydub
+croniter>=1.3.8  # Required for time-based scheduling
+moviepy>=1.0.3
+numpy>=1.24.0

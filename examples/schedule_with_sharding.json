@@ -1,0 +1,133 @@
+{
+  "tasks": [
+    {
+      "id": "system_governor",
+      "type": "governor",
+      "priority": -2,
+      "required_role": "system",
+      "config": {
+        "check_interval_seconds": 60
+      }
+    },
+    {
+      "id": "video_broadcast",
+      "type": "video",
+      "priority": 5,
+      "required_role": "media",
+      "sharding": {
+        "enabled": true,
+        "items_per_shard": 5,
+        "min_items_for_sharding": 10,
+        "max_shards": 4
+      },
+      "config": {
+        "video": {
+          "resolution": "1920x1080",
+          "framerate": 30,
+          "bitrate": "4000k"
+        },
+        "output": {
+          "directory": "/app/output/video_broadcast",
+          "format": "mp4"
+        }
+      }
+    },
+    {
+      "id": "image_gallery",
+      "type": "image",
+      "priority": 6,
+      "required_role": "media",
+      "sharding": {
+        "enabled": true,
+        "items_per_shard": 10
+      },
+      "config": {
+        "image": {
+          "max_width": 1920,
+          "quality": 85,
+          "format": "webp"
+        },
+        "output": {
+          "directory": "/app/output/gallery",
+          "naming": "item_{index}.webp"
+        }
+      }
+    }
+  ],
+  "_example_transformed_tasks": {
+    "comment": "After governor processing, the above tasks would become:",
+    "tasks": [
+      {
+        "id": "video_broadcast_shard_1",
+        "type": "video_shard",
+        "priority": 5,
+        "required_role": "media",
+        "config": {
+          "video": {
+            "resolution": "1920x1080",
+            "framerate": 30,
+            "bitrate": "4000k"
+          },
+          "output": {
+            "directory": "/app/output/video_broadcast/shards",
+            "format": "mp4"
+          },
+          "shard": {
+            "id": "1",
+            "total_shards": 3,
+            "start_index": 0,
+            "end_index": 5,
+            "parent_task_id": "video_broadcast"
+          }
+        }
+      },
+      {
+        "id": "video_broadcast_shard_2",
+        "type": "video_shard",
+        "priority": 5,
+        "required_role": "media",
+        "config": {
+          "shard": {
+            "id": "2",
+            "total_shards": 3,
+            "start_index": 5,
+            "end_index": 10,
+            "parent_task_id": "video_broadcast"
+          }
+        }
+      },
+      {
+        "id": "video_broadcast_shard_3",
+        "type": "video_shard",
+        "priority": 5,
+        "required_role": "media",
+        "config": {
+          "shard": {
+            "id": "3",
+            "total_shards": 3,
+            "start_index": 10,
+            "end_index": 13,
+            "parent_task_id": "video_broadcast"
+          }
+        }
+      },
+      {
+        "id": "video_broadcast_combiner",
+        "type": "video_combiner",
+        "priority": 5,
+        "required_role": "media",
+        "config": {
+          "combine": {
+            "parent_task_id": "video_broadcast",
+            "total_shards": 3,
+            "shard_task_pattern": "video_broadcast_shard_*"
+          },
+          "output": {
+            "directory": "/app/output/video_broadcast",
+            "format": "mp4"
+          }
+        }
+      }
+    ]
+  }
+}

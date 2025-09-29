@@ -1,0 +1,60 @@
+{
+  "tasks": [
+    {
+      "id": "youtube_channel_stream",
+      "type": "live_streamer",
+      "priority": 5,
+      "config": {
+        "platform": "youtube",
+        "rtmp_url": "rtmp://a.rtmp.youtube.com/live2",
+        "stream_key_secret_name": "YOUTUBE_STREAM_KEY",
+        "video": {
+          "resolution": "1280x720",
+          "framerate": 24,
+          "bitrate": "2500k",
+          "preset": "veryfast"
+        },
+        "audio": {
+          "bitrate": "128k",
+          "channels": 2,
+          "sample_rate": 44100
+        },
+        "content": {
+          "transition_duration": 1.0,
+          "item_display_duration": 15,
+          "background_color": "#000000",
+          "text_color": "#FFFFFF",
+          "font_size_ratio": 0.066
+        }
+      }
+    },
+    {
+      "id": "twitch_stream",
+      "type": "live_streamer",
+      "priority": 6,
+      "config": {
+        "platform": "twitch",
+        "rtmp_url": "rtmp://live.twitch.tv/app",
+        "stream_key_secret_name": "TWITCH_STREAM_KEY",
+        "video": {
+          "resolution": "1920x1080",
+          "framerate": 30,
+          "bitrate": "4500k",
+          "preset": "veryfast"
+        },
+        "audio": {
+          "bitrate": "160k",
+          "channels": 2,
+          "sample_rate": 48000
+        },
+        "content": {
+          "transition_duration": 0.5,
+          "item_display_duration": 20,
+          "background_color": "#1A1A1A",
+          "text_color": "#FFFFFF",
+          "font_size_ratio": 0.05
+        }
+      }
+    }
+  ]
+}

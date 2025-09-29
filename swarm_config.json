@@ -1,0 +1,37 @@
+{
+  "comment": "Global configuration for the Shortlist swarm. Changes here will be automatically picked up by all nodes.",
+  "log_level": "INFO",
+  "intervals": {
+    "node_heartbeat_seconds": 300,
+    "task_heartbeat_seconds": 60,
+    "idle_loop_seconds": 15,
+    "git_sync_seconds": 10,
+    "renderer_health_check_seconds": 20
+  },
+  "timeouts": {
+    "node_timeout_seconds": 900,
+    "task_timeout_seconds": 180,
+    "git_operation_seconds": 30,
+    "renderer_startup_seconds": 60,
+    "renderer_health_check_seconds": 10
+  },
+  "jitter": {
+    "min_seconds": 1,
+    "max_seconds": 8
+  },
+  "resilience": {
+    "max_git_retries": 3,
+    "git_retry_delay_seconds": 5,
+    "max_renderer_restarts": 2,
+    "renderer_restart_delay_seconds": 30
+  },
+  "memory_limits": {
+    "max_renderer_memory_mb": 512,
+    "memory_warning_threshold_percent": 80
+  },
+  "feature_flags": {
+    "enable_task_preemption": false,
+    "enable_auto_scaling": false,
+    "strict_health_checks": true
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "data": {
+    "system": {
+      "name": "CloudOps Platform",
+      "version": "2.5.0",
+      "environment": "production",
+      "last_updated": "2025-09-28T20:45:00Z",
+      "metrics": {
+        "uptime": 99.99,
+        "response_time": 150,
+        "active_users": 12500,
+        "cpu_load": 65.5,
+        "memory_used": 75.8
+      }
+    },
+    "services": [
+      {
+        "name": "API Gateway",
+        "status": "operational",
+        "latency": 45,
+        "incidents": 0
+      },
+      {
+        "name": "Auth Service",
+        "status": "degraded",
+        "latency": 250,
+        "incidents": 2
+      },
+      {
+        "name": "Database Cluster",
+        "status": "operational",
+        "latency": 15,
+        "incidents": 0
+      }
+    ],
+    "thresholds": {
+      "warning": {
+        "cpu": 70,
+        "memory": 80,
+        "latency": 200
+      },
+      "critical": {
+        "cpu": 90,
+        "memory": 95,
+        "latency": 500
+      }
+    }
+  },
+  "items": [
+    {
+      "id": "system_overview",
+      "type": "text",
+      "content": "{{ system.name }} v{{ system.version }} Status\nEnvironment: {{ system.environment | upper }}\nLast Updated: {{ system.last_updated }}\n\n📊 System Metrics:\n• Uptime: {{ system.metrics.uptime }}%\n• Response Time: {{ system.metrics.response_time }}ms\n• Active Users: {{ '{:,}'.format(system.metrics.active_users) }}\n\n{% set cpu = system.metrics.cpu_load %}\n{% set mem = system.metrics.memory_used %}\n\nResource Usage:\n{% if cpu >= thresholds.critical.cpu %}🔴{% elif cpu >= thresholds.warning.cpu %}🟡{% else %}🟢{% endif %} CPU: {{ '%.1f' | format(cpu) }}%\n{% if mem >= thresholds.critical.memory %}🔴{% elif mem >= thresholds.warning.memory %}🟡{% else %}🟢{% endif %} Memory: {{ '%.1f' | format(mem) }}%"
+    },
+    {
+      "id": "service_status",
+      "type": "text",
+      "content": "Service Status:\n{% for service in services %}\n{{ '🔴' if service.status == 'down' else '🟡' if service.status == 'degraded' else '🟢' }} {{ service.name }}\n  • Status: {{ service.status | upper }}\n  • Latency: {% if service.latency > thresholds.critical.latency %}⚠️ {% endif %}{{ service.latency }}ms\n  • Incidents: {{ service.incidents }}\n{% endfor %}"
+    },
+    {
+      "id": "alerts",
+      "type": "text",
+      "content": "Current Alerts:\n{% for service in services if service.status != 'operational' %}\n⚠️ {{ service.name }} is experiencing issues:\n  • Status: {{ service.status | upper }}\n  • Latency: {{ service.latency }}ms (Threshold: {{ thresholds.warning.latency }}ms)\n{% else %}\n✅ All services are operational\n{% endfor %}"
+    }
+  ]
+}

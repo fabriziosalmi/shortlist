@@ -19,6 +19,59 @@ This project is an experiment in decentralized collaboration. The key principles
 
 ## How It Works
 
+### Time-Based Item Scheduling
+
+Shortlist supports time-based scheduling for individual items. Each item in your shortlist can have an optional `schedule` field that specifies when the item should be active. When no schedule is specified, items are always active.
+
+#### Scheduling Example
+
+```json
+{
+  "items": [
+    {
+      "id": "daily_greeting_morning",
+      "content": "Good morning and welcome to our daily update!",
+      "schedule": "0 8 * * 1-5"  // At 8:00 AM, Monday through Friday
+    },
+    {
+      "id": "lunch_announcement",
+      "content": "It's lunch time! Don't forget to take a break.",
+      "schedule": "0 12 * * *"  // At 12:00 PM, every day
+    },
+    {
+      "id": "weekend_message",
+      "content": "Welcome to the weekend edition!",
+      "schedule": "0 10 * * 6,0"  // At 10:00 AM, Saturday and Sunday
+    },
+    {
+      "id": "always_active",
+      "content": "This message appears in every rendering."
+      // No schedule means always active
+    }
+  ]
+}
+```
+
+#### Schedule Format
+
+Schedules use the standard cron format with five fields:
+```
+minute  hour  day-of-month  month  day-of-week
+```
+
+Examples:
+- `0 8 * * 1-5`: Every weekday at 8:00 AM
+- `*/15 * * * *`: Every 15 minutes
+- `0 9-17/2 * * *`: Every 2 hours from 9 AM to 5 PM
+
+For help with cron expressions, visit [crontab.guru](https://crontab.guru).
+
+Each renderer is "time-aware" and will only include items whose schedules match the current time. This allows you to create dynamic content that changes throughout the day, week, or month without manual intervention.
+
+For detailed information about scheduling, see [SCHEDULING.md](SCHEDULING.md).
+
+## How It Works
+
 The system is composed of several key components:
 
 #### 1. State Files
@@ -54,7 +107,39 @@ Renderers are the "muscles" of the swarm. They are containerized applications (m
 
 The Shortlist swarm is now equipped with autonomous capabilities, allowing it to adapt and self-heal based on real-time metrics and predefined rules. This is achieved through the integration of two new systemic renderers: the Governor and the Healer.
 
-### Node Self-Awareness & Health Monitoring
+### ⚡ Efficient State Management
+
+Shortlist optimizes Git operations through intelligent batching:
+
+#### Batched Operations
+- System components (healer, governor) accumulate changes and commit them together
+- Multiple state updates are combined into single Git operations
+- Intelligent commit messages describe all included changes
+
+Example batch operation:
+```python
+with batch_manager as batch:
+    # All these changes will be committed together
+    batch.stage_json_update(
+        "assignments.json",
+        assignments_data,
+        "Release orphaned tasks"
+    )
+    batch.stage_json_update(
+        "roster.json",
+        roster_data,
+        "Remove dead nodes"
+    )
+# Changes are automatically committed on exit
+```
+
+Benefits:
+- Reduced Git write traffic
+- Cleaner commit history
+- Atomic multi-file updates
+- Better context in commit messages
+
+### 👀 Node Self-Awareness & Health Monitoring
 
 #### System Metrics
 Every node monitors its own performance (CPU, memory) and reports it in real-time, transforming the swarm into a sensory system. This data is crucial for the Governor to make informed decisions.
@@ -135,6 +220,34 @@ The Shortlist system currently includes the following working renderers:
 - **MP3 streaming** accessible at http://localhost:8001
 
 ### 🎬 Video Renderer
+
+### 🚀 Live Streamer Renderer
+- Continuous 24/7 live streaming to RTMP platforms (YouTube, Twitch, etc.)
+- Dynamically updates content when shortlist.json changes
+- Robust FFmpeg management with automatic restart on failure
+- Secure stream key handling using the Control Room secrets system
+
+Basic task configuration example (in schedule.json):
+```json
+{
+  "id": "youtube_live_stream_247",
+  "type": "live_streamer",
+  "priority": 5,
+  "config": {
+    "platform": "youtube",
+    "rtmp_url": "rtmp://a.rtmp.youtube.com/live2",
+    "stream_key_secret_name": "YOUTUBE_STREAM_KEY",
+    "video": { "resolution": "1280x720", "framerate": 24, "bitrate": "2500k" },
+    "audio": { "bitrate": "128k" }
+  }
+}
+```
+
+How it works:
+- The renderer generates a rolling playlist from shortlist items
+- FFmpeg reads the playlist and streams continuously via RTMP
+- When shortlist.json is updated, the playlist is atomically replaced,
+  so the stream content changes without interruption
 - **MP4 video generation** with visual text display
 - **Synchronized TTS audio** embedded in video
 - **Clean visual design** with centered text on black background
@@ -146,6 +259,50 @@ The Shortlist system currently includes the following working renderers:
 - **Lightweight and fast** for basic content viewing
 - **Mobile-friendly** responsive design
 - **Direct content access** at http://localhost:8003
+
+### Dynamic Content with Jinja2 Templating
+- **Global Data Context**: Define reusable data in a dedicated `data` section
+- **Template Processing**: Use Jinja2 syntax in any text field
+- **Advanced Features**: Loops, conditionals, filters, and more
+- **Safe Execution**: Sandboxed environment for secure template processing
+
+Example shortlist.json with templates:
+```json
+{
+  "data": {
+    "company": {
+      "name": "TechCorp",
+      "current_milestone": "Series B"
+    },
+    "report": {
+      "period": "Q4 2025",
+      "team": {
+        "lead": "Dr. Eva Rostova",
+        "size": 42,
+        "locations": ["San Francisco", "London", "Tokyo"]
+      }
+    }
+  },
+  "items": [
+    {
+      "id": "company_update",
+      "type": "text",
+      "content": "{{ company.name }} ({{ company.current_milestone }}) - {{ report.period }} Update"
+    },
+    {
+      "id": "team_status",
+      "type": "text",
+      "content": "Our {{ report.team.size }}-person team, led by {{ report.team.lead }}, operates from {% for loc in report.team.locations %}{{ loc }}{% if not loop.last %}, {% endif %}{% endfor %}."
+    }
+  ]
+}
+```
+
+When rendered, the above templates would produce:
+```text
+TechCorp (Series B) - Q4 2025 Update
+Our 42-person team, led by Dr. Eva Rostova, operates from San Francisco, London, Tokyo.
+```
 
 ### 🛡️ API Renderer (Governance)
 - **Two-tier access control** with Maintainer and Contributor levels
@@ -242,6 +399,50 @@ The swarm coordinates tasks based on priority (0 = highest):
 6. **🌐 Web Interface** - Simple HTML content display
 
 ---
+
+## Node Roles and Specialization
+
+Shortlist nodes can now specialize in specific types of tasks through roles. This allows for better resource utilization and more efficient task distribution.
+
+### Available Roles
+
+- **system**: Core system tasks (governor, healer, API)
+- **media**: Audio and video rendering
+- **web**: Web interfaces and dashboards
+- **broadcaster**: Social media integration
+
+### Running a Specialized Node
+
+By default, nodes accept all roles for backward compatibility. To specialize a node:
+
+```bash
+# Run a system node (governor, healer, API)
+python node.py --roles system
+
+# Run a media processing node
+python node.py --roles media
+
+# Run a web interface node
+python node.py --roles web
+
+# Run a multi-role node
+python node.py --roles system,web
+```
+
+### Task Role Requirements
+
+Tasks in schedule.json can specify required roles:
+
+```json
+{
+  "id": "video_stream",
+  "type": "video",
+  "required_role": "media",
+  "config": { ... }
+}
+```
+
+Only nodes with the matching role will pick up these tasks.
 
 ## Getting Started: How to Run a Node
 
@@ -370,7 +571,124 @@ curl -X POST http://localhost:8004/v1/proposals/shortlist \
   }'
 ```
 
-### 🔒 **Security & Governance**
+### 📛 Remote Swarm Configuration
+
+Shortlist supports dynamic, centralized configuration through `swarm_config.json`. This enables real-time tuning of the entire swarm's behavior without requiring node restarts.
+
+#### Configuration Categories
+
+- **Intervals**: Control timing of heartbeats, health checks, and loop cycles
+- **Timeouts**: Define thresholds for node/task failure detection
+- **Jitter**: Configure collision avoidance timing
+- **Resilience**: Set retry policies and error handling behavior
+- **Memory Limits**: Control resource usage boundaries
+- **Feature Flags**: Toggle experimental features
+
+#### Example Configuration
+
+```json
+{
+  "log_level": "INFO",
+  "intervals": {
+    "node_heartbeat_seconds": 300,
+    "task_heartbeat_seconds": 60
+  },
+  "timeouts": {
+    "node_timeout_seconds": 900,
+    "task_timeout_seconds": 180
+  },
+  "feature_flags": {
+    "enable_auto_scaling": false,
+    "strict_health_checks": true
+  }
+}
+```
+
+#### Common Use Cases
+
+1. **Debug Mode**: Set `log_level` to `DEBUG` across the swarm
+   ```json
+   { "log_level": "DEBUG" }
+   ```
+
+2. **Performance Tuning**: Adjust timing intervals
+   ```json
+   {
+     "intervals": {
+       "idle_loop_seconds": 5,
+       "git_sync_seconds": 15
+     }
+   }
+   ```
+
+3. **Network Issues**: Increase timeouts and retries
+   ```json
+   {
+     "timeouts": {
+       "git_operation_seconds": 60
+     },
+     "resilience": {
+       "max_git_retries": 5
+     }
+   }
+   ```
+
+### 🚀 Event Notifications via Webhooks
+
+Shortlist can notify external services about important system events through webhooks. This enables real-time integration with chat platforms, monitoring systems, or custom applications.
+
+#### Supported Events
+
+- `shortlist.updated`: Triggered when the content of shortlist.json changes
+- `node.down`: *(Coming Soon)* Triggered when a node becomes unresponsive
+- `node.up`: *(Coming Soon)* Triggered when a node recovers
+
+#### Webhook Payload Example
+
+```json
+{
+    "event": "shortlist.updated",
+    "timestamp": "2025-09-28T21:05:11Z",
+    "triggered_by": "git_commit:a1b2c3d4",
+    "data": {
+        "items": [
+            "Latest announcement goes here",
+            "Another important update"
+        ]
+    }
+}
+```
+
+#### Integration Examples
+
+**Slack Integration:**
+```bash
+# Create a Slack webhook
+curl -X POST http://localhost:8004/v1/admin/webhooks \
+  -H "Authorization: Bearer $MAINTAINER_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://hooks.slack.com/services/YOUR/WEBHOOK/HERE",
+    "event": "shortlist.updated",
+    "description": "Notify #announcements channel"
+  }'
+```
+
+**Custom Integration:**
+```python
+from flask import Flask, request
+
+app = Flask(__name__)
+
+@app.route("/webhook", methods=["POST"])
+def handle_webhook():
+    event = request.json["event"]
+    data = request.json["data"]
+    # Process the webhook payload
+    return "", 200
+```
+
+### 🔒 Security & Governance
 
 The Governance API implements a "Trust Circles" architecture:
 
@@ -379,6 +697,10 @@ The Governance API implements a "Trust Circles" architecture:
 - **📋 Audit Trail**: All changes tracked through GitHub's version control
 - **🛡️ Branch Protection**: Configurable approval workflows
 - **🤖 Automation**: Seamless integration with existing swarm infrastructure
+
+## Scaling Architecture
+
+For a complete overview of Shortlist's scaling model (roles, leases, sharding, and the swarm simulator), see SCALING_ARCHITECTURE.md.
 
 ## License
 
@@ -437,6 +759,118 @@ Component logs are stored in `/app/data/` with component-specific files:
 - `healer.log`: Healer component logs
 - `text.log`: Text renderer logs
 - `video.log`: Video renderer logs
+
+---
+
+### ⚡ Intelligent Content Caching
+
+Shortlist now implements an intelligent caching system for rendered content, dramatically improving performance and resource utilization:
+
+- **Per-Item Caching**: Each item in shortlist.json is individually cached after rendering
+- **Content-Based Invalidation**: Cache entries are invalidated only when content actually changes
+- **Automatic Cache Management**: Old or unused entries are automatically cleaned up
+- **Resource-Aware**: Cache maintains minimum free space and removes oldest entries when needed
+
+Benefits:
+- **Faster Updates**: Changes to shortlist.json are reflected almost instantly
+- **Resource Efficiency**: Avoid re-rendering unchanged content
+- **Reduced Load**: Significantly lower CPU and memory usage during updates
+
+Cache Configuration (in task_config.json):
+```json
+{
+  "cache": {
+    "max_age_days": 30,
+    "min_free_space_mb": 1000,
+    "cleanup_interval_hours": 24
+  }
+}
+```
+
+### 🔄 Parallel Processing with Task Sharding
+
+Shortlist supports automatic task sharding for parallel processing of large workloads:
+
+#### Sharding Configuration
+
+```json
+{
+  "id": "video_broadcast",
+  "type": "video",
+  "sharding": {
+    "enabled": true,
+    "items_per_shard": 5,
+    "min_items_for_sharding": 10,
+    "max_shards": 4
+  }
+}
+```
+
+#### How It Works
+
+1. **Task Splitting**: The governor automatically splits large tasks into multiple shards
+2. **Parallel Processing**: Multiple nodes process shards simultaneously
+3. **Result Combination**: A combiner task assembles the final output
+
+Benefits:
+- **Faster Processing**: Process large workloads in parallel
+- **Better Resource Usage**: Distribute work across the swarm
+- **Automatic Scaling**: Number of shards adapts to workload size
+- **Flexible Configuration**: Control shard size and limits per task
+
+### 🤖 Autonomous Agents
+
+Shortlist can be enriched by autonomous agents - external processes that interact with the governance API to propose or manage content automatically. These agents operate independently but integrate seamlessly with Shortlist's governance system.
+
+### Available Agents
+
+#### 📰 RSS Curator
+The RSS Curator agent monitors configured RSS feeds and automatically proposes new articles to the shortlist when they match specific keywords. It's perfect for keeping your shortlist updated with the latest relevant content from trusted sources.
+
+**Features:**
+- 🔍 Keyword-based article filtering
+- 📅 Age-based filtering (skip older articles)
+- 🎯 Multiple feed support with per-feed configuration
+- 📊 Structured logging and monitoring
+- 🔄 Automatic duplicate detection
+
+**Setup:**
+
+1. Navigate to the agent directory:
+   ```bash
+   cd agents/rss_curator
+   ```
+
+2. Configure your feeds in `config.json`:
+   ```json
+   {
+     "feeds": [
+       {
+         "name": "Tech News",
+         "url": "https://example.com/feed.xml",
+         "keywords": ["AI", "cloud", "security"],
+         "max_age_days": 2
+       }
+     ]
+   }
+   ```
+
+3. Set up your environment:
+   ```bash
+   export CONTRIBUTOR_API_TOKEN="your-token-here"
+   ```
+
+4. Run the agent:
+   ```bash
+   # Direct execution
+   python curator.py
+   
+   # Or using Docker
+   docker build -t rss-curator .
+   docker run -e CONTRIBUTOR_API_TOKEN -v $PWD/data:/app/data rss-curator
+   ```
+
+The agent will start monitoring your configured feeds and propose new articles that match your criteria through Shortlist's governance API.
 
 ---
 

@@ -1,0 +1,54 @@
+{
+  "tasks": [
+    {
+      "id": "video_renderer",
+      "type": "video",
+      "priority": 5,
+      "config": {
+        "cache": {
+          "enabled": true,
+          "max_age_days": 30,
+          "min_free_space_mb": 1000,
+          "cleanup_interval_hours": 24,
+          "directories": {
+            "base": "/app/cache",
+            "segments": "/app/cache/segments",
+            "assets": "/app/cache/assets"
+          }
+        },
+        "video": {
+          "resolution": "1280x720",
+          "framerate": 30,
+          "bitrate": "2500k"
+        },
+        "content": {
+          "transition_duration": 0.5,
+          "display_duration": 10
+        }
+      }
+    },
+    {
+      "id": "audio_renderer",
+      "type": "audio",
+      "priority": 6,
+      "config": {
+        "cache": {
+          "enabled": true,
+          "max_age_days": 15,
+          "min_free_space_mb": 500,
+          "cleanup_interval_hours": 12,
+          "directories": {
+            "base": "/app/cache",
+            "segments": "/app/cache/segments",
+            "assets": "/app/cache/assets"
+          }
+        },
+        "audio": {
+          "bitrate": "192k",
+          "sample_rate": 44100,
+          "channels": 2
+        }
+      }
+    }
+  ]
+}

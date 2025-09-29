@@ -3,7 +3,7 @@ import json
 import requests
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 
 from utils.logging_config import configure_logging
 from utils.logging_utils import (
@@ -26,6 +26,21 @@ API_URL = f"http://{API_CONTAINER_NAME}:8000"
 SHORTLIST_FILE = "/app/data/shortlist.json"
 ROSTER_FILE = "/app/data/roster.json"
 ASSIGNMENTS_FILE = "/app/data/assignments.json"
+
+
+def _resolve_governance_api_url() -> Optional[str]:
+    """Resolve the current Governance API URL based on assignments.
+    Returns the base URL like http://container-name:8000 or None if unavailable.
+    """
+    assignments = read_json_file(ASSIGNMENTS_FILE) or {"assignments": {}}
+    governance_assignment = assignments.get("assignments", {}).get("shortlist_governance_api")
+    if not governance_assignment:
+        return None
+    node_id = governance_assignment.get("node_id")
+    if not node_id:
+        return None
+    container_name = f"shortlist_governance_api-{node_id[:8]}"
+    return f"http://{container_name}:8000"
 
 @log_execution_time(logger.logger)
 def read_json_file(filepath: str) -> Dict[str, Any]:
@@ -395,6 +410,167 @@ def health_check():
         "timestamp": datetime.utcnow().replace(tzinfo=timezone.utc).isoformat(),
         "service": "shortlist-admin-ui"
     })
+
+
+# --- New proxy endpoints for History & Revert ---
+@app.route("/api/history", methods=["GET"])
+def proxy_history():
+    """Proxy to Governance API history endpoint.
+    Expects ?token=MAINTAINER_API_TOKEN in query params.
+    """
+    with log_operation(logger.logger, "proxy_history",
+                      path=request.path,
+                      method=request.method,
+                      remote_addr=request.remote_addr):
+        try:
+            token = request.args.get("token", "").strip()
+            if not token:
+                return jsonify({"error": "API token is required"}), 400
+
+            api_url = _resolve_governance_api_url()
+            if not api_url:
+                return jsonify({"error": "Governance API not available"}), 503
+
+            headers = {"Authorization": f"Bearer {token}"}
+            resp = requests.get(f"{api_url}/v1/admin/history", headers=headers, timeout=20)
+            return Response(resp.content, status=resp.status_code, mimetype=resp.headers.get('Content-Type', 'application/json'))
+        except requests.exceptions.RequestException as e:
+            return jsonify({"error": str(e)}), 503
+        except Exception as e:
+            logger.logger.error("History proxy failed", error=str(e), error_type=type(e).__name__)
+            return jsonify({"error": str(e)}), 500
+
+
+@app.route("/ui/revert", methods=["POST"])
+def proxy_revert():
+    """Proxy to Governance API revert endpoint.
+    Body: { commit_hash, token }
+    """
+    with log_operation(logger.logger, "proxy_revert",
+                      path=request.path,
+                      method=request.method,
+                      remote_addr=request.remote_addr):
+        try:
+            data = request.json or {}
+            token = data.get("token", "").strip()
+            commit_hash = data.get("commit_hash", "").strip()
+
+            if not token:
+                return jsonify({"error": "API token is required"}), 400
+            if not commit_hash:
+                return jsonify({"error": "commit_hash is required"}), 400
+
+            api_url = _resolve_governance_api_url()
+            if not api_url:
+                return jsonify({"error": "Governance API not available"}), 503
+
+            headers = {"Authorization": f"Bearer {token}"}
+            payload = {"commit_hash": commit_hash}
+            resp = requests.post(f"{api_url}/v1/admin/revert", json=payload, headers=headers, timeout=60)
+            return Response(resp.content, status=resp.status_code, mimetype=resp.headers.get('Content-Type', 'application/json'))
+        except requests.exceptions.RequestException as e:
+            return jsonify({"error": str(e)}), 503
+        except Exception as e:
+            logger.logger.error("Revert proxy failed", error=str(e), error_type=type(e).__name__)
+            return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/secrets", methods=["GET"]) 
+def proxy_list_secrets():
+    with log_operation(logger.logger, "proxy_list_secrets",
+                      path=request.path,
+                      method=request.method,
+                      remote_addr=request.remote_addr):
+        try:
+            token = request.args.get("token", "").strip()
+            if not token:
+                return jsonify({"error": "API token is required"}), 400
+            api_url = _resolve_governance_api_url()
+            if not api_url:
+                return jsonify({"error": "Governance API not available"}), 503
+            headers = {"Authorization": f"Bearer {token}"}
+            r = requests.get(f"{api_url}/v1/admin/secrets", headers=headers, timeout=20)
+            return Response(r.content, status=r.status_code, mimetype=r.headers.get('Content-Type', 'application/json'))
+        except requests.exceptions.RequestException as e:
+            return jsonify({"error": str(e)}), 503
+        except Exception as e:
+            logger.logger.error("Secrets list proxy failed", error=str(e), error_type=type(e).__name__)
+            return jsonify({"error": str(e)}), 500
+
+
+@app.route("/ui/secrets", methods=["POST", "DELETE"]) 
+def proxy_mutate_secrets():
+    with log_operation(logger.logger, "proxy_mutate_secrets",
+                      path=request.path,
+                      method=request.method,
+                      remote_addr=request.remote_addr):
+        try:
+            data = request.json or {}
+            token = data.get("token", "").strip()
+            if not token:
+                return jsonify({"error": "API token is required"}), 400
+            api_url = _resolve_governance_api_url()
+            if not api_url:
+                return jsonify({"error": "Governance API not available"}), 503
+            headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+            if request.method == 'POST':
+                payload = {"key": data.get("key", ""), "value": data.get("value", "")}
+                r = requests.post(f"{api_url}/v1/admin/secrets", json=payload, headers=headers, timeout=20)
+            else:
+                payload = {"key": data.get("key", "")}
+                r = requests.delete(f"{api_url}/v1/admin/secrets", json=payload, headers=headers, timeout=20)
+            return Response(r.content, status=r.status_code, mimetype=r.headers.get('Content-Type', 'application/json'))
+        except requests.exceptions.RequestException as e:
+            return jsonify({"error": str(e)}), 503
+        except Exception as e:
+            logger.logger.error("Secrets mutate proxy failed", error=str(e), error_type=type(e).__name__)
+            return jsonify({"error": str(e)}), 500
+
+
+@app.route("/ui/preview", methods=["POST"]) 
+def proxy_preview():
+    """Proxy preview generation to Governance API with streaming response."""
+    with log_operation(logger.logger, "proxy_preview",
+                      path=request.path,
+                      method=request.method,
+                      remote_addr=request.remote_addr):
+        try:
+            data = request.json or {}
+            token = data.get("token", "").strip()
+            renderer_type = data.get("renderer_type", "")
+            content = data.get("content")
+
+            if not token:
+                return jsonify({"error": "API token is required"}), 400
+            if renderer_type not in ("audio", "video"):
+                return jsonify({"error": "renderer_type must be 'audio' or 'video'"}), 400
+            if not isinstance(content, dict):
+                return jsonify({"error": "content must be a JSON object"}), 400
+
+            api_url = _resolve_governance_api_url()
+            if not api_url:
+                return jsonify({"error": "Governance API not available"}), 503
+
+            headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+            # Stream the response from the API to the client
+            with requests.post(f"{api_url}/v1/admin/preview", json={
+                "renderer_type": renderer_type,
+                "content": content
+            }, headers=headers, stream=True, timeout=600) as r:
+                def generate():
+                    for chunk in r.iter_content(chunk_size=8192):
+                        if chunk:
+                            yield chunk
+                # Pass through status and content-type
+                return Response(stream_with_context(generate()), status=r.status_code, headers={
+                    'Content-Type': r.headers.get('Content-Type', 'application/octet-stream'),
+                    'Content-Disposition': r.headers.get('Content-Disposition', '')
+                })
+        except requests.exceptions.RequestException as e:
+            return jsonify({"error": str(e)}), 503
+        except Exception as e:
+            logger.logger.error("Preview proxy failed", error=str(e), error_type=type(e).__name__)
+            return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     logger.log_startup(

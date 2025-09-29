@@ -1,0 +1,6 @@
+moviepy>=1.0.3
+Pillow>=10.0.0
+python-json-logger>=2.0.7
+requests>=2.31.0
+numpy>=1.24.0
+imageio-ffmpeg>=0.4.8

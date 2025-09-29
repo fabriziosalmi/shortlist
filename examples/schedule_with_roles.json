@@ -1,0 +1,93 @@
+{
+  "tasks": [
+    {
+      "id": "system_governor",
+      "type": "governor",
+      "priority": -2,
+      "required_role": "system",
+      "config": {
+        "check_interval_seconds": 60
+      }
+    },
+    {
+      "id": "system_healer",
+      "type": "healer",
+      "priority": -1,
+      "required_role": "system",
+      "config": {
+        "check_interval_seconds": 30
+      }
+    },
+    {
+      "id": "governance_api",
+      "type": "api",
+      "priority": 0,
+      "required_role": "system",
+      "config": {
+        "port": 8004
+      }
+    },
+    {
+      "id": "control_room",
+      "type": "admin_ui",
+      "priority": 1,
+      "required_role": "web",
+      "config": {
+        "port": 8005
+      }
+    },
+    {
+      "id": "status_dashboard",
+      "type": "dashboard",
+      "priority": 2,
+      "required_role": "web",
+      "config": {
+        "port": 8000
+      }
+    },
+    {
+      "id": "telegram_broadcaster",
+      "type": "text",
+      "priority": 3,
+      "required_role": "broadcaster",
+      "config": {
+        "platform": "telegram"
+      }
+    },
+    {
+      "id": "audio_stream",
+      "type": "audio",
+      "priority": 4,
+      "required_role": "media",
+      "config": {
+        "port": 8001,
+        "audio": {
+          "bitrate": "192k",
+          "channels": 2
+        }
+      }
+    },
+    {
+      "id": "video_stream",
+      "type": "video",
+      "priority": 5,
+      "required_role": "media",
+      "config": {
+        "port": 8002,
+        "video": {
+          "resolution": "1280x720",
+          "framerate": 30
+        }
+      }
+    },
+    {
+      "id": "web_interface",
+      "type": "web",
+      "priority": 6,
+      "required_role": "web",
+      "config": {
+        "port": 8003
+      }
+    }
+  ]
+}

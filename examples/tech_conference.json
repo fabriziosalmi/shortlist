@@ -1,0 +1,70 @@
+{
+  "data": {
+    "conference": {
+      "name": "TechCon 2025",
+      "venue": "Innovation Center",
+      "dates": {
+        "start": "2025-10-15",
+        "end": "2025-10-17"
+      },
+      "tracks": ["AI/ML", "Cloud Native", "DevOps", "Security"]
+    },
+    "schedule": {
+      "day1": [
+        {
+          "time": "09:00",
+          "title": "Keynote: Future of AI",
+          "speaker": "Dr. Sarah Chen",
+          "room": "Main Hall"
+        },
+        {
+          "time": "11:00",
+          "title": "Cloud Security Workshop",
+          "speaker": "James Wilson",
+          "room": "Workshop Room A"
+        }
+      ],
+      "day2": [
+        {
+          "time": "10:00",
+          "title": "DevOps Best Practices",
+          "speaker": "Maria Garcia",
+          "room": "Track 2"
+        },
+        {
+          "time": "14:00",
+          "title": "ML Model Deployment",
+          "speaker": "Dr. Alex Kumar",
+          "room": "Track 1"
+        }
+      ]
+    },
+    "sponsors": {
+      "platinum": ["TechCorp", "CloudNet", "AI Systems"],
+      "gold": ["DevTools Inc.", "SecureNet"],
+      "silver": ["StartupX", "CodeLabs", "DataFlow"]
+    }
+  },
+  "items": [
+    {
+      "id": "conference_welcome",
+      "type": "text",
+      "content": "Welcome to {{ conference.name }} at {{ conference.venue }}!\n\nJoin us from {{ conference.dates.start }} to {{ conference.dates.end }} for incredible talks across {% for track in conference.tracks %}{{ track }}{% if not loop.last %}, {% endif %}{% endfor %}."
+    },
+    {
+      "id": "day1_schedule",
+      "type": "text",
+      "content": "Day 1 Schedule:\n{% for session in schedule.day1 %}\n⏰ {{ session.time }} - {{ session.title }}\n🎤 {{ session.speaker }} | 📍 {{ session.room }}\n{% endfor %}"
+    },
+    {
+      "id": "day2_schedule",
+      "type": "text",
+      "content": "Day 2 Schedule:\n{% for session in schedule.day2 %}\n⏰ {{ session.time }} - {{ session.title }}\n🎤 {{ session.speaker }} | 📍 {{ session.room }}\n{% endfor %}"
+    },
+    {
+      "id": "sponsors_highlight",
+      "type": "text",
+      "content": "Thank You to Our Sponsors!\n\n🏆 Platinum Sponsors:\n{% for sponsor in sponsors.platinum %}• {{ sponsor }}\n{% endfor %}\n\n🥇 Gold Sponsors:\n{% for sponsor in sponsors.gold %}• {{ sponsor }}\n{% endfor %}\n\n🥈 Silver Sponsors:\n{% for sponsor in sponsors.silver %}• {{ sponsor }}\n{% endfor %}"
+    }
+  ]
+}

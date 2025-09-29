@@ -3,6 +3,7 @@ import json
 from typing import Dict, Any, Optional
 
 from utils.logging_config import configure_logging
+from utils.template_processor import process_shortlist_content
 from utils.logging_utils import (
     ComponentLogger,
     RENDERER_CONTEXT,
@@ -52,13 +53,21 @@ def index() -> Response:
                       path=request.path,
                       method=request.method,
                       remote_addr=request.remote_addr):
+        # Read and process templates
         shortlist_data = read_shortlist(SHORTLIST_FILE)
-        items = shortlist_data.get('items', [])
+        processed_data = process_shortlist_content(shortlist_data)
+        items = processed_data.get('items', [])
         
         logger.logger.info("Rendering shortlist",
                           items_count=len(items))
         
-        html = f"<h1>Shortlist</h1><ul>{''.join([f'<li>{item}</li>' for item in items])}</ul>"
+        # Handle both string items and dict items with content field
+        item_contents = [
+            item.get('content', item) if isinstance(item, dict) else item
+            for item in items
+        ]
+        
+        html = f"<h1>Shortlist</h1><ul>{''.join([f'<li>{content}</li>' for content in item_contents])}</ul>"
         return Response(html, mimetype='text/html')
 
 if __name__ == '__main__':

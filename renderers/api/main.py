@@ -3,11 +3,15 @@ import json
 import subprocess
 import uuid
 from datetime import datetime
-from typing import Dict, Any, Optional
-
+import uuid
+import tempfile
+from pathlib import Path
+from typing import Dict, List, Any, Optional, Literal
+from fastapi.responses import FileResponse
 from fastapi import FastAPI, HTTPException, Header, Depends, Request
 from fastapi.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
+from typing import List
 from github import Github
 import tempfile
 import shutil
@@ -45,6 +49,12 @@ GITHUB_REPO = os.getenv("GITHUB_REPO", "owner/repo")  # Format: "owner/repo"
 
 app = FastAPI(title="Shortlist Governance API", version="1.0.0")
 
+# Secrets storage configuration
+SECRETS_DIR = "/app/data/secrets"
+SECRETS_FILE = os.path.join(SECRETS_DIR, "secrets.json")
+
+os.makedirs(SECRETS_DIR, exist_ok=True)
+
 # Add request logging middleware
 app.add_middleware(RequestLoggingMiddleware)
 
@@ -55,6 +65,26 @@ class ShortlistUpdate(BaseModel):
 class ShortlistProposal(BaseModel):
     items: list[str]
     description: str = "Proposed shortlist update"
+
+class HistoryEntry(BaseModel):
+    hash: str
+    author: str
+    date: str
+    subject: str
+
+class PreviewRequest(BaseModel):
+    renderer_type: Literal["audio", "video"]
+    content: Dict[str, Any]
+
+class RevertRequest(BaseModel):
+    commit_hash: str
+
+class SecretUpsert(BaseModel):
+    key: str
+    value: str
+
+class SecretDelete(BaseModel):
+    key: str
 
 # Authentication dependencies
 @log_execution_time(logger.logger)
@@ -374,6 +404,289 @@ This proposal requires review and approval by a maintainer before merging.
                               error_type=type(e).__name__,
                               proposal_id=proposal_id)
             raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/v1/admin/preview")
+async def generate_preview(
+    request: PreviewRequest,
+    token: str = Depends(verify_maintainer_token)
+):
+    """Generate a preview of content using an isolated renderer instance."""
+    allowed_renderers = {
+        "audio": {
+            "image": "shortlist-audio",
+            "output_file": "shortlist_loop.mp3",
+            "content_type": "audio/mpeg"
+        },
+        "video": {
+            "image": "shortlist-video",
+            "output_file": "shortlist_video.mp4",
+            "content_type": "video/mp4"
+        }
+    }
+    
+    if request.renderer_type not in allowed_renderers:
+        raise HTTPException(status_code=400, detail="Invalid renderer type")
+        
+    renderer_config = allowed_renderers[request.renderer_type]
+    
+    with log_operation(logger.logger, "generate_preview",
+                     renderer_type=request.renderer_type):
+        # Create temporary directories for input and output
+        with tempfile.TemporaryDirectory() as temp_dir:
+            try:
+                temp_path = Path(temp_dir)
+                input_dir = temp_path / "input"
+                output_dir = temp_path / "output"
+                input_dir.mkdir()
+                output_dir.mkdir()
+                
+                # Write preview content to shortlist.json
+                shortlist_path = input_dir / "shortlist.json"
+                with shortlist_path.open('w') as f:
+                    json.dump(request.content, f, indent=2)
+                
+                logger.logger.info("Starting preview generation",
+                               input_file=str(shortlist_path),
+                               renderer=renderer_config["image"])
+                
+                # Run renderer container
+                container_cmd = [
+                    "docker", "run", "--rm",
+                    "-v", f"{input_dir}:/app/data:ro",
+                    "-v", f"{output_dir}:/app/output",
+                    renderer_config["image"]
+                ]
+                
+                result = subprocess.run(
+                    container_cmd,
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                
+                output_file = output_dir / renderer_config["output_file"]
+                if not output_file.exists():
+                    logger.logger.error("Renderer did not generate output file",
+                                    output_path=str(output_file))
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Failed to generate preview"
+                    )
+                
+                logger.logger.info("Preview generated successfully",
+                               output_file=str(output_file))
+                
+                return FileResponse(
+                    path=str(output_file),
+                    media_type=renderer_config["content_type"],
+                    filename=f"preview.{output_file.suffix[1:]}"
+                )
+                
+            except subprocess.CalledProcessError as e:
+                logger.logger.error("Preview generation failed",
+                               error=e.stderr,
+                               command=" ".join(e.cmd))
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Preview generation failed: {e.stderr}"
+                )
+            except Exception as e:
+                logger.logger.error("Preview generation failed",
+                               error=str(e),
+                               error_type=type(e).__name__)
+                raise HTTPException(
+                    status_code=500,
+                    detail=str(e)
+                )
+
+@app.get("/v1/admin/history")
+async def get_history(token: str = Depends(verify_maintainer_token)) -> List[HistoryEntry]:
+    """Get git history for shortlist.json file."""
+    with log_operation(logger.logger, "get_history"):
+        try:
+            # Use git log to get history of shortlist.json
+            result = subprocess.run([
+                "git", "log",
+                "--pretty=format:{\"hash\": \"%H\", \"author\": \"%an\", \"date\": \"%ai\", \"subject\": \"%s\"}",
+                "--no-merges",  # Exclude merge commits
+                "-n", "30",    # Limit to 30 entries
+                "--", "shortlist.json"
+            ], check=True, capture_output=True, text=True)
+            
+            # Parse JSON lines into list
+            history_lines = [line for line in result.stdout.split('\n') if line.strip()]
+            history = []
+            
+            for line in history_lines:
+                try:
+                    entry = json.loads(line)
+                    history.append(HistoryEntry(**entry))
+                except Exception as e:
+                    logger.logger.warning("Failed to parse history entry",
+                                       error=str(e),
+                                       line=line)
+                    continue
+            
+            logger.logger.info("History retrieved successfully",
+                             entries_count=len(history))
+            return history
+            
+        except subprocess.CalledProcessError as e:
+            logger.logger.error("Git history failed",
+                             error=e.stderr,
+                             command=" ".join(e.cmd))
+            raise HTTPException(status_code=500, detail=f"Failed to get history: {e.stderr}")
+        except Exception as e:
+            logger.logger.error("History retrieval failed",
+                             error=str(e),
+                             error_type=type(e).__name__)
+            raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/v1/admin/revert")
+async def revert_commit(request: RevertRequest, token: str = Depends(verify_maintainer_token)):
+    """Revert a specific commit from the shortlist history."""
+    with log_operation(logger.logger, "revert_commit",
+                     commit_hash=request.commit_hash):
+        try:
+            # Validate commit exists and affects shortlist.json
+            result = subprocess.run([
+                "git", "log",
+                "--format=%H",
+                "--no-merges",
+                "--", "shortlist.json"
+            ], check=True, capture_output=True, text=True)
+            
+            valid_hashes = set(result.stdout.strip().split('\n'))
+            if request.commit_hash not in valid_hashes:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid commit hash or commit does not affect shortlist.json"
+                )
+            
+            # Create a new branch for the revert
+            timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+            branch_name = f"revert-{timestamp}"
+            
+            # Create new branch
+            subprocess.run(["git", "checkout", "-b", branch_name], check=True)
+            
+            try:
+                # Revert the commit
+                revert_result = subprocess.run(
+                    ["git", "revert", "--no-edit", request.commit_hash],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                
+                # Push branch
+                subprocess.run(["git", "push", "origin", branch_name], check=True)
+                
+                # Create PR
+                pr_title = f"Revert: {request.commit_hash[:8]} (via Control Room)"
+                pr_body = f"""## Automatic Revert
+
+This PR reverts commit {request.commit_hash} through the Control Room.
+
+🔄 Generated by: Shortlist Governance API
+⏰ Timestamp: {datetime.utcnow().isoformat()}
+                """
+                
+                pr = git_manager.create_pull_request(branch_name, pr_title, pr_body)
+                
+                # Approve and merge immediately
+                merge_result = git_manager.approve_and_merge_pr(pr)
+                
+                logger.logger.info("Revert successful",
+                                commit_hash=request.commit_hash,
+                                branch=branch_name,
+                                pr_number=pr.number)
+                
+                return {
+                    "status": "reverted",
+                    "reverted_commit": request.commit_hash,
+                    "revert_commit": merge_result.sha,
+                    "pull_request_url": pr.html_url
+                }
+                
+            finally:
+                # Clean up: switch back to main branch
+                subprocess.run(["git", "checkout", "main"], check=True)
+            
+        except subprocess.CalledProcessError as e:
+            logger.logger.error("Git revert failed",
+                             error=e.stderr,
+                             command=" ".join(e.cmd))
+            raise HTTPException(
+                status_code=500,
+                detail=f"Revert operation failed: {e.stderr}"
+            )
+            
+        except Exception as e:
+            logger.logger.error("Revert failed",
+                             error=str(e),
+                             error_type=type(e).__name__)
+            raise HTTPException(status_code=500, detail=str(e))
+
+def _read_secrets() -> Dict[str, str]:
+    try:
+        if not os.path.exists(SECRETS_FILE):
+            return {}
+        with open(SECRETS_FILE, 'r') as f:
+            data = json.load(f)
+            if isinstance(data, dict):
+                return data
+            return {}
+    except Exception as e:
+        logger.logger.error("Failed to read secrets.json", error=str(e), error_type=type(e).__name__)
+        return {}
+
+
+def _write_secrets(data: Dict[str, str]) -> bool:
+    try:
+        os.makedirs(SECRETS_DIR, exist_ok=True)
+        temp_path = SECRETS_FILE + ".tmp"
+        with open(temp_path, 'w') as f:
+            json.dump(data, f, indent=2)
+        os.replace(temp_path, SECRETS_FILE)
+        return True
+    except Exception as e:
+        logger.logger.error("Failed to write secrets.json", error=str(e), error_type=type(e).__name__)
+        return False
+
+
+@app.get("/v1/admin/secrets")
+async def list_secrets(token: str = Depends(verify_maintainer_token)):
+    """Return only the list of secret keys (no values)."""
+    with log_operation(logger.logger, "list_secrets"):
+        secrets = _read_secrets()
+        return {"secrets": sorted(list(secrets.keys()))}
+
+
+@app.post("/v1/admin/secrets")
+async def upsert_secret(secret: SecretUpsert, token: str = Depends(verify_maintainer_token)):
+    """Create or update a secret value by key."""
+    with log_operation(logger.logger, "upsert_secret", key=secret.key):
+        if not secret.key or secret.value is None:
+            raise HTTPException(status_code=400, detail="key and value are required")
+        secrets = _read_secrets()
+        secrets[secret.key] = secret.value
+        if not _write_secrets(secrets):
+            raise HTTPException(status_code=500, detail="Failed to persist secret")
+        return {"status": "ok", "message": f"Secret {secret.key} stored"}
+
+
+@app.delete("/v1/admin/secrets")
+async def delete_secret(payload: SecretDelete, token: str = Depends(verify_maintainer_token)):
+    """Delete a secret by key."""
+    with log_operation(logger.logger, "delete_secret", key=payload.key):
+        secrets = _read_secrets()
+        if payload.key in secrets:
+            del secrets[payload.key]
+            if not _write_secrets(secrets):
+                raise HTTPException(status_code=500, detail="Failed to persist secrets after delete")
+        return {"status": "ok", "message": f"Secret {payload.key} deleted (if existed)"}
+
 
 @app.get("/v1/status")
 async def get_system_status():
