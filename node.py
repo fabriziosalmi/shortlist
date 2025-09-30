@@ -9,7 +9,31 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Optional
 
 from utils.logging_config import configure_logging
-from utils.logging_utils import ComponentLogger, NODE_CONTEXT, log_operation, log_execution_time, log_state_change
+from utils.logging_utils import ComponentLogger, NODE_CONTEXT, log_execution_time, log_state_change
+
+# Simple decorator for logging operations
+def log_operation_decorator(func):
+    def wrapper(self, *args, **kwargs):
+        operation_name = func.__name__
+        try:
+            result = func(self, *args, **kwargs)
+            return result
+        except Exception as e:
+            if hasattr(self, 'logger'):
+                self.logger.error(f"Operation {operation_name} failed", error=str(e))
+            raise
+    return wrapper
+
+# Use the decorator as log_operation for backward compatibility
+log_operation = log_operation_decorator
+
+# Import regional coordination (optional - graceful fallback if not available)
+try:
+    from utils.geographic import get_geographic_manager
+    from utils.regional_coordinator import RegionalCoordinator
+    REGIONAL_SUPPORT = True
+except ImportError:
+    REGIONAL_SUPPORT = False
 
 # --- Configuration ---
 NODE_ID_FILE = f".node_id_{os.getpid()}"
@@ -336,16 +360,72 @@ class Node(ComponentLogger):
         self.state = NodeState.IDLE
         self.current_task = None
         self.last_roster_heartbeat = None
-        
+
+        # Initialize regional coordination if available
+        self.regional_coordinator = None
+        self.geo_manager = None
+
+        if REGIONAL_SUPPORT:
+            try:
+                from utils.git_manager import GitManager
+                self.geo_manager = get_geographic_manager()
+
+                # Create a simple GitManager wrapper for existing functions
+                class SimpleGitManager(GitManager):
+                    def sync(self):
+                        git_pull()
+                        return True
+
+                    def commit_and_push(self, files, message):
+                        git_push()
+                        return True
+
+                    def read_file(self, path):
+                        with open(path, 'r') as f:
+                            return f.read()
+
+                    def write_file(self, path, content):
+                        with open(path, 'w') as f:
+                            f.write(content)
+
+                    def read_json(self, path):
+                        return read_json_file(path)
+
+                    def write_json(self, path, data):
+                        write_json_file(path, data)
+
+                    def read_json_file(self, filename):
+                        return read_json_file(filename)
+
+                    def write_json_file(self, filename, data, message=None):
+                        write_json_file(filename, data)
+                        if message:
+                            git_push()
+                        return True
+
+                git_manager = SimpleGitManager()
+                self.regional_coordinator = RegionalCoordinator(git_manager)
+
+                print(f"    ✅ Regional support enabled: {self.geo_manager.current_region}")
+            except Exception as e:
+                print(f"    ⚠️ Failed to initialize regional support: {e}")
+
         # Add persistent context
-        self.logger.add_context(
-            node_id=self.node_id,
+        context = {
+            'node_id': self.node_id,
             **NODE_CONTEXT
-        )
-        
+        }
+
+        if self.geo_manager:
+            context['region'] = self.geo_manager.current_region
+
+        self.logger.add_context(**context)
+
         self.log_startup(
             state=self.state,
-            node_id_short=self.node_id[:8]
+            node_id_short=self.node_id[:8],
+            regional_support=REGIONAL_SUPPORT,
+            region=self.geo_manager.current_region if self.geo_manager else 'default'
         )
 
     def _recover_and_reset(self, error_source: str) -> None:
@@ -434,7 +514,44 @@ class Node(ComponentLogger):
     def run_attempt_claim_state(self) -> None:
         task_id = self.current_task['id']
         self.logger.info("Attempting to claim task", task_id=task_id)
-        
+
+        # Use regional coordinator if available, otherwise fall back to legacy behavior
+        if self.regional_coordinator:
+            success = self._attempt_claim_with_regional_coordinator()
+        else:
+            success = self._attempt_claim_legacy()
+
+        if success:
+            print(f"    - ✅ Successfully claimed {self.current_task['id']}!")
+            self.state = NodeState.ACTIVE
+        else:
+            print(f"    - Failed to claim {self.current_task['id']}. Returning to IDLE.")
+            self.state = NodeState.IDLE
+
+    def _attempt_claim_with_regional_coordinator(self) -> bool:
+        """Attempt to claim task using regional coordinator."""
+
+        # Jitter
+        wait_ms = random.randint(0, JITTER_MILLISECONDS)
+        self.logger.debug("Applying jitter delay", wait_ms=wait_ms)
+        time.sleep(wait_ms / 1000.0)
+
+        # Check if we can claim this task regionally
+        can_claim, reason = self.regional_coordinator.can_claim_task(self.current_task, self.node_id)
+        if not can_claim:
+            self.logger.info("Cannot claim task due to regional constraints", {
+                'task_id': self.current_task['id'],
+                'reason': reason
+            })
+            return False
+
+        # Attempt to claim with lease
+        lease_duration = timedelta(minutes=5)  # 5 minute lease
+        return self.regional_coordinator.claim_task(self.current_task, self.node_id, lease_duration)
+
+    def _attempt_claim_legacy(self) -> bool:
+        """Attempt to claim task using legacy behavior."""
+
         # Jitter
         wait_ms = random.randint(0, JITTER_MILLISECONDS)
         self.logger.debug("Applying jitter delay", wait_ms=wait_ms)
@@ -450,30 +567,30 @@ class Node(ComponentLogger):
             assignment = assignments["assignments"][self.current_task['id']]
             heartbeat_time = datetime.fromisoformat(assignment.get("task_heartbeat", "1970-01-01T00:00:00+00:00"))
             if (datetime.now(timezone.utc) - heartbeat_time) < TASK_EXPIRATION:
-                print(f"    - Task {self.current_task['id']} has been claimed by another node. Returning to IDLE.")
-                self.state = NodeState.IDLE
-                return
+                return False
 
         # Claim the task
         now_iso = datetime.now(timezone.utc).isoformat()
-        assignments.setdefault("assignments", {})[self.current_task['id']] = {
+        task_assignment = {
             "node_id": self.node_id,
             "claimed_at": now_iso,
             "task_heartbeat": now_iso,
             "status": "claiming"
         }
+
+        # Add regional context if geo_manager is available
+        if self.geo_manager:
+            task_assignment["region"] = self.geo_manager.current_region
+
+        assignments.setdefault("assignments", {})[self.current_task['id']] = task_assignment
+
         # Write to assignments file, using cwd as base
         assignments_path = os.path.join(os.getcwd(), ASSIGNMENTS_FILE)
         with open(assignments_path, 'w') as f:
             json.dump(assignments, f, indent=2)
 
         commit_message = f"feat(assignments): node {self.node_id[:8]} claims {self.current_task['id']}"
-        if commit_and_push([ASSIGNMENTS_FILE], commit_message):
-            print(f"    - ✅ Successfully claimed {self.current_task['id']}!")
-            self.state = NodeState.ACTIVE
-        else:
-            print("    - No changes to commit. Returning to IDLE.")
-            self.state = NodeState.IDLE
+        return commit_and_push([ASSIGNMENTS_FILE], commit_message)
 
     @log_execution_time
     def run_active_state(self) -> None:
@@ -582,16 +699,24 @@ class Node(ComponentLogger):
                 if node["id"] == self.node_id:
                     node["last_seen"] = current_time
                     node["metrics"] = metrics
+                    # Add regional context if available
+                    if self.geo_manager:
+                        node["region"] = self.geo_manager.current_region
                     node_found = True
                     break
 
             if not node_found:
-                roster["nodes"].append({
+                new_node = {
                     "id": self.node_id,
                     "started_at": current_time,
                     "last_seen": current_time,
                     "metrics": metrics
-                })
+                }
+                # Add regional context if available
+                if self.geo_manager:
+                    new_node["region"] = self.geo_manager.current_region
+
+                roster["nodes"].append(new_node)
             
             # Write to roster file, using cwd as base
             roster_path = os.path.join(os.getcwd(), ROSTER_FILE)
@@ -605,5 +730,50 @@ class Node(ComponentLogger):
             print(f"    - 🚨 Error during roster heartbeat: {e}")
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Shortlist Node with Geographic Distribution Support')
+    parser.add_argument('--region',
+                       help='Override region detection (e.g., us-east, eu-west, asia-pacific)',
+                       default=None)
+    parser.add_argument('--roles',
+                       help='Comma-separated list of roles (for compatibility with existing role system)',
+                       default=None)
+    parser.add_argument('--enable-geo-sharding',
+                       action='store_true',
+                       help='Enable geographic sharding (requires geographic_config.json)')
+
+    args = parser.parse_args()
+
+    # Set region override if specified
+    if args.region:
+        os.environ['SHORTLIST_REGION'] = args.region
+        print(f"🌍 Region override: {args.region}")
+
+    # Enable geographic sharding if requested
+    if args.enable_geo_sharding:
+        print("🗺️ Geographic sharding enabled")
+
+    # Print banner with geographic information
+    if REGIONAL_SUPPORT:
+        try:
+            from utils.geographic import get_geographic_manager
+            geo_manager = get_geographic_manager()
+            print(f"🚀 Starting Shortlist Node")
+            print(f"   Region: {geo_manager.current_region}")
+            print(f"   Geographic Sharding: {'Enabled' if geo_manager.is_sharding_enabled() else 'Disabled'}")
+            if args.roles:
+                print(f"   Roles: {args.roles}")
+            print()
+        except Exception as e:
+            print(f"⚠️ Geographic support initialization failed: {e}")
+            print("   Falling back to single-region mode")
+            print()
+    else:
+        print("🚀 Starting Shortlist Node (single-region mode)")
+        if args.roles:
+            print(f"   Roles: {args.roles}")
+        print()
+
     node = Node()
     node.run()

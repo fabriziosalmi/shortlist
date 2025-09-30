@@ -1,0 +1,143 @@
+{
+  "comment": "Geographic distribution configuration for Shortlist swarm. This enables multi-region deployment with automatic failover and conflict resolution.",
+  "geographic_sharding": {
+    "enabled": false,
+    "default_region": "default",
+    "quorum_regions": 2,
+    "total_regions": 3,
+    "election_timeout_seconds": 30,
+    "cross_region_heartbeat_seconds": 60
+  },
+  "regions": {
+    "default": {
+      "name": "Default Region",
+      "priority": 1,
+      "weight": 1,
+      "timezone": "UTC",
+      "sync_interval_seconds": 300,
+      "nodes": [],
+      "description": "Default single-region configuration for backward compatibility"
+    },
+    "us-east": {
+      "name": "US East (Primary)",
+      "git_repo": "git@github.com:company/shortlist-us.git",
+      "priority": 1,
+      "weight": 2,
+      "timezone": "America/New_York",
+      "sync_interval_seconds": 300,
+      "nodes": [],
+      "description": "Primary coordination region"
+    },
+    "eu-west": {
+      "name": "Europe West",
+      "git_repo": "git@github.com:company/shortlist-eu.git",
+      "priority": 2,
+      "weight": 1,
+      "timezone": "Europe/London",
+      "sync_interval_seconds": 300,
+      "nodes": [],
+      "description": "European operations and GDPR compliance"
+    },
+    "asia-pacific": {
+      "name": "Asia Pacific",
+      "git_repo": "git@github.com:company/shortlist-apac.git",
+      "priority": 3,
+      "weight": 1,
+      "timezone": "Asia/Tokyo",
+      "sync_interval_seconds": 300,
+      "nodes": [],
+      "description": "Asian markets and operations"
+    }
+  },
+  "regional_ownership": {
+    "us-east": [
+      "global_announcements",
+      "corporate_updates",
+      "system_maintenance",
+      "governance_api"
+    ],
+    "eu-west": [
+      "gdpr_notices",
+      "eu_compliance",
+      "european_events",
+      "privacy_updates"
+    ],
+    "asia-pacific": [
+      "regional_events",
+      "timezone_specific",
+      "asian_markets",
+      "local_updates"
+    ]
+  },
+  "consistency_policies": {
+    "shortlist_updates": {
+      "consistency": "eventual",
+      "max_lag_seconds": 30,
+      "conflict_resolution": "semantic_merge",
+      "description": "Content updates can have brief lag for performance"
+    },
+    "schedule_changes": {
+      "consistency": "strong",
+      "quorum_required": true,
+      "timeout_seconds": 10,
+      "conflict_resolution": "region_priority",
+      "description": "Task scheduling must be consistent across regions"
+    },
+    "node_roster": {
+      "consistency": "eventual",
+      "max_lag_seconds": 60,
+      "conflict_resolution": "last_writer_wins",
+      "description": "Node heartbeats can be eventually consistent"
+    },
+    "governance_operations": {
+      "consistency": "strong",
+      "quorum_required": true,
+      "timeout_seconds": 15,
+      "conflict_resolution": "region_priority",
+      "description": "Security and governance require strong consistency"
+    },
+    "metrics_collection": {
+      "consistency": "eventual",
+      "max_lag_seconds": 120,
+      "conflict_resolution": "last_writer_wins",
+      "description": "Metrics can be eventually consistent"
+    }
+  },
+  "conflict_resolution": {
+    "merge_strategies": {
+      "shortlist_items": "semantic_deduplication",
+      "node_assignments": "timestamp_priority",
+      "configuration": "manual_review_required"
+    },
+    "resolution_order": [
+      "timestamp",
+      "region_priority",
+      "vector_clock",
+      "content_hash"
+    ]
+  },
+  "global_coordination": {
+    "coordinator_election": {
+      "strategy": "priority_based_raft",
+      "election_timeout_seconds": 30,
+      "heartbeat_interval_seconds": 10
+    },
+    "quorum_requirements": {
+      "minimum_regions": 2,
+      "minimum_percentage": 60
+    }
+  },
+  "geo_metrics": {
+    "sla_targets": {
+      "cross_region_latency_ms": 500,
+      "conflict_rate_percent": 1,
+      "convergence_time_seconds": 30,
+      "coordinator_uptime_percent": 99.9
+    },
+    "monitoring": {
+      "enabled": true,
+      "alert_on_sla_breach": true,
+      "metrics_retention_days": 30
+    }
+  }
+}
