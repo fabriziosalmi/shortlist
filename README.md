@@ -2,7 +2,7 @@
 
 **Shortlist** is a resilient, decentralized broadcasting system that uses **Git as a coordination backend** to manage a swarm of autonomous nodes. No central server, no single point of failure.
 
-[![Deploy Status](https://img.shields.io/badge/deploy-ready-brightgreen)](https://github.com/fab/shortlist) [![Geographic Support](https://img.shields.io/badge/geographic-multi--region-blue)](#-geographic-distribution) [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Deploy Status](https://img.shields.io/badge/deploy-ready-brightgreen)](https://github.com/fabriziosalmi/shortlist) [![Geographic Support](https://img.shields.io/badge/geographic-multi--region-blue)](#-geographic-distribution) [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ---
 
@@ -11,7 +11,7 @@
 Want to see it in action immediately?
 
 ```bash
-git clone <your_repository_url>
+git clone https://github.com/fabriziosalmi/shortlist.git
 cd shortlist
 python3 node.py
 ```
